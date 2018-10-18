@@ -72,7 +72,11 @@
 
 #include <board_config.h>
 
+#ifdef USE_BINARY_PARSER
 #include "tfmini_parser.h"
+#else
+#include "drivers/distance_sensor/sf0x/sf0x_parser.h"
+#endif
 
 /* Configuration Constants */
 
@@ -109,7 +113,11 @@ private:
 	int                      _fd;
 	char                     _linebuf[10];
 	unsigned                 _linebuf_index;
+#ifdef USE_BINARY_PARSER
 	enum TFMINI_PARSE_STATE  _parse_state;
+#else
+	enum SF0X_PARSE_STATE    _parse_state;
+#endif
 
 	hrt_abstime              _last_read;
 
@@ -180,7 +188,11 @@ TFMINI::TFMINI(const char *port, uint8_t rotation) :
 	_collect_phase(false),
 	_fd(-1),
 	_linebuf_index(0),
+#ifdef USE_BINBARY_PARSER
 	_parse_state(TFMINI_PARSE_STATE0_UNSYNC),
+#else
+	_parse_state(SF0X_PARSE_STATE0_UNSYNC),
+#endif
 	_last_read(0),
 	_class_instance(-1),
 	_orb_class_instance(-1),
@@ -195,7 +207,7 @@ TFMINI::TFMINI(const char *port, uint8_t rotation) :
 	_port[sizeof(_port) - 1] = '\0';
 
 	// disable debug() calls
-	_debug_enabled = false;
+	_debug_enabled = true;
 
 	// work_cancel in the dtor will explode if we don't do this...
 	memset(&_work, 0, sizeof(_work));
@@ -560,9 +572,15 @@ TFMINI::collect()
 	bool valid = false;
 
 	for (int i = 0; i < ret; i++) {
+#ifdef USE_BINARY_PARSER
 		if (OK == tfmini_parser(readbuf[i], _linebuf, &_linebuf_index, &_parse_state, &distance_m)) {
 			valid = true;
 		}
+#else
+		if (OK == sf0x_parser(readbuf[i], _linebuf, &_linebuf_index, &_parse_state, &distance_m)) {
+			valid = true;
+		}
+#endif
 	}
 
 	if (!valid) {

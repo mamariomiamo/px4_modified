@@ -69,6 +69,7 @@
 
 #include <uORB/uORB.h>
 #include <uORB/topics/distance_sensor.h>
+#include <uORB/topics/obstacle_avoidance_distance.h>
 
 #include <board_config.h>
 
@@ -113,6 +114,7 @@ private:
 	int                      _fd;
 	char                     _linebuf[10];
 	unsigned                 _linebuf_index;
+	int32_t					 tfmini_mode;
 #ifdef USE_BINARY_PARSER
 	enum TFMINI_PARSE_STATE  _parse_state;
 #else
@@ -125,6 +127,7 @@ private:
 	int                      _orb_class_instance;
 
 	orb_advert_t             _distance_sensor_topic;
+	orb_advert_t			 _obstacle_avoidance_distance_topic;
 
 	unsigned                 _consecutive_fail_count;
 
@@ -188,6 +191,7 @@ TFMINI::TFMINI(const char *port, uint8_t rotation) :
 	_collect_phase(false),
 	_fd(-1),
 	_linebuf_index(0),
+	tfmini_mode(0),
 #ifdef USE_BINBARY_PARSER
 	_parse_state(TFMINI_PARSE_STATE0_UNSYNC),
 #else
@@ -197,6 +201,7 @@ TFMINI::TFMINI(const char *port, uint8_t rotation) :
 	_class_instance(-1),
 	_orb_class_instance(-1),
 	_distance_sensor_topic(nullptr),
+	_obstacle_avoidance_distance_topic(nullptr),
 	_consecutive_fail_count(0),
 	_sample_perf(perf_alloc(PC_ELAPSED, "tfmini_read")),
 	_comms_errors(perf_alloc(PC_COUNT, "tfmini_com_err"))
@@ -236,6 +241,7 @@ TFMINI::init()
 {
 	int32_t hw_model;
 	param_get(param_find("SENS_EN_TFMINI"), &hw_model);
+	param_get(param_find("SENS_MODE_TFMINI"), &tfmini_mode);
 
 	switch (hw_model) {
 	case 0:
@@ -343,6 +349,14 @@ TFMINI::init()
 
 		if (_distance_sensor_topic == nullptr) {
 			DEVICE_LOG("failed to create distance_sensor object. Did you start uOrb?");
+		}
+		struct obstacle_avoidance_distance_s od_report = {};
+
+		_obstacle_avoidance_distance_topic = orb_advertise_multi(ORB_ID(obstacle_avoidance_distance), &od_report,
+					 &_orb_class_instance, ORB_PRIO_HIGH);
+
+		if (_obstacle_avoidance_distance_topic == nullptr) {
+			DEVICE_LOG("failed to create obstacle distance object. Did you start uOrb?");
 		}
 
 	} while (0);
@@ -602,7 +616,32 @@ TFMINI::collect()
 	report.id = 0;
 
 	/* publish it */
-	orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
+	switch(tfmini_mode){
+
+	case 0:
+		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
+		break;
+
+	case 1:
+	{
+		struct obstacle_avoidance_distance_s od_report;
+		od_report.timestamp = hrt_absolute_time();
+		od_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
+		od_report.orientation = _rotation;
+		od_report.current_distance = distance_m;
+		od_report.min_distance = get_minimum_distance();
+		od_report.max_distance = get_maximum_distance();
+		od_report.covariance = 0.0f;
+
+		orb_publish(ORB_ID(obstacle_avoidance_distance), _obstacle_avoidance_distance_topic, &od_report);
+		break;
+	}
+
+	default:
+		break;
+
+	}
+
 
 	_reports->force(&report);
 

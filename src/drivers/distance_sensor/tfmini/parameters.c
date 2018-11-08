@@ -40,3 +40,12 @@
  * @group Sensors
  */
 PARAM_DEFINE_INT32(SENS_EN_TFMINI, 0);
+/**
+ * Benewake TFmini laser rangefinder MODE
+ *
+ * @reboot_required true
+ *
+ * @integer: 0=height distance; 1=forward; 2=backward; 3=left; 4=right
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_MODE_TFMINI, 1);

@@ -106,6 +106,7 @@ set(config_module_list
 	modules/mavlink
 	modules/navigator
 	#modules/uavcan
+	modules/obstacle_avoidance
 
 	#
 	# Estimation modules
@@ -160,7 +161,7 @@ set(config_module_list
 
 	# Tutorial code from
 	# https://px4.io/dev/px4_simple_app
-	#examples/px4_simple_app
+	examples/px4_simple_app
 
 	# Tutorial code from
 	# https://px4.io/dev/debug_values

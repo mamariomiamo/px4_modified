@@ -39,6 +39,9 @@
 
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/sensor_combined.h>
+#include <uORB/topics/distance_sensor.h>
+#include <uORB/topics/obstacle_avoidance_distance.h>
+
 
 
 int Obstacle_Avoidance::print_usage(const char *reason)
@@ -63,10 +66,10 @@ $ module start -f -p 42
 
 )DESCR_STR");
 
-	PRINT_MODULE_USAGE_NAME("module", "template");
+	PRINT_MODULE_USAGE_NAME("obstacle_avoidance", "modules");
 	PRINT_MODULE_USAGE_COMMAND("start");
-	PRINT_MODULE_USAGE_PARAM_FLAG('f', "Optional example flag", true);
-	PRINT_MODULE_USAGE_PARAM_INT('p', 0, 0, 1000, "Optional example parameter", true);
+	PRINT_MODULE_USAGE_PARAM_FLAG('f', "Optional oa flag", true);
+	PRINT_MODULE_USAGE_PARAM_INT('p', 0, 0, 1000, "Optional oa parameter", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
@@ -169,10 +172,10 @@ Obstacle_Avoidance::Obstacle_Avoidance(int example_param, bool example_flag)
 void Obstacle_Avoidance::run()
 {
 	// Example: run the loop synchronized to the sensor_combined topic publication
-	int sensor_combined_sub = orb_subscribe(ORB_ID(sensor_combined));
+	int distance_sensor_sub = orb_subscribe(ORB_ID(distance_sensor));
 
 	px4_pollfd_struct_t fds[1];
-	fds[0].fd = sensor_combined_sub;
+	fds[0].fd = distance_sensor_sub;
 	fds[0].events = POLLIN;
 
 	// initialize parameters
@@ -195,9 +198,13 @@ void Obstacle_Avoidance::run()
 
 		} else if (fds[0].revents & POLLIN) {
 
-			struct sensor_combined_s sensor_combined;
-			orb_copy(ORB_ID(sensor_combined), sensor_combined_sub, &sensor_combined);
+			struct distance_sensor_s distance_sensor;
+			orb_copy(ORB_ID(distance_sensor), distance_sensor_sub, &distance_sensor);
 			// TODO: do something with the data...
+			if(distance_sensor.orientation == distance_sensor_s::ROTATION_FORWARD_FACING) //make tf mini data processed only facing forward
+			{
+
+			}
 
 		}
 
@@ -205,7 +212,7 @@ void Obstacle_Avoidance::run()
 		parameters_update(parameter_update_sub);
 	}
 
-	orb_unsubscribe(sensor_combined_sub);
+	orb_unsubscribe(distance_sensor_sub);
 	orb_unsubscribe(parameter_update_sub);
 }
 

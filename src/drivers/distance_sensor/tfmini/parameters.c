@@ -39,7 +39,7 @@
  * @boolean
  * @group Sensors
  */
-PARAM_DEFINE_INT32(SENS_EN_TFMINI, 0);
+PARAM_DEFINE_INT32(SENS_EN_TFMINI, 1);
 /**
  * Benewake TFmini laser rangefinder MODE
  *

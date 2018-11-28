@@ -41,6 +41,9 @@
 #include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/obstacle_avoidance_distance.h>
+#include <uORB/topics/sensor_combined.h>
+#include <systemlib/mavlink_log.h>
+
 
 
 
@@ -173,7 +176,8 @@ void Obstacle_Avoidance::run()
 {
 	// Example: run the loop synchronized to the sensor_combined topic publication
 	int distance_sensor_sub = orb_subscribe(ORB_ID(distance_sensor));
-
+	int acc_sensor_sub = orb_subscribe(ORB_ID(sensor_combined));
+	//orb_advert_t	_mavlink_log_pub;		/**< mavlink log advert */
 	px4_pollfd_struct_t fds[1];
 	fds[0].fd = distance_sensor_sub;
 	fds[0].events = POLLIN;
@@ -200,14 +204,19 @@ void Obstacle_Avoidance::run()
 
 			struct distance_sensor_s distance_sensor;
 			orb_copy(ORB_ID(distance_sensor), distance_sensor_sub, &distance_sensor);
+			struct sensor_combined_s acc_sensor;
+			orb_copy(ORB_ID(sensor_combined), acc_sensor_sub, &acc_sensor);
 			// TODO: do something with the data...
 			if(distance_sensor.orientation == distance_sensor_s::ROTATION_FORWARD_FACING) //make tf mini data processed only facing forward
 			{
+				//sensor.accelerometer_m_s2[0];
+				printf("acc sensor readings: %.3f, %.3f, %.3f\n", (double)acc_sensor.accelerometer_m_s2[0], (double)acc_sensor.accelerometer_m_s2[1], (double)acc_sensor.accelerometer_m_s2[2]);				//mavlink_log_info(&_mavlink_log_pub, "[oa] running");
 
 			}
 
-		}
+			//mavlink_log_info(&_mavlink_log_pub, "[oa] running");
 
+		}
 
 		parameters_update(parameter_update_sub);
 	}

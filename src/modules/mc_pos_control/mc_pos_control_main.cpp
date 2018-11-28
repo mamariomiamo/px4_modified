@@ -1094,7 +1094,7 @@ MulticopterPositionControl::set_manual_acceleration_xy(matrix::Vector2f &stick_x
 			_manual_jerk_limit_xy = (_jerk_hor_max.get() - _jerk_hor_min.get()) / _velocity_hor_manual.get() *
 						sqrtf(_vel(0) * _vel(0) + _vel(1) * _vel(1)) + _jerk_hor_min.get();
 
-			/* we start braking with lowest accleration */
+			/* we start braking with lowest acceleration */
 			_acceleration_state_dependent_xy = _deceleration_hor_slow.get();
 
 		} else {

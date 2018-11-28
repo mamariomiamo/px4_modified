@@ -43,9 +43,14 @@
 #include <uORB/topics/obstacle_avoidance_distance.h>
 #include <uORB/topics/sensor_combined.h>
 #include <systemlib/mavlink_log.h>
+#include <uORB/topics/vehicle_local_position.h>
 
 
 
+int red_line_distance_local;
+int green_line_distance_local;
+float time_threshold_local;
+bool control_en_flag_local;
 
 int Obstacle_Avoidance::print_usage(const char *reason)
 {
@@ -54,7 +59,7 @@ int Obstacle_Avoidance::print_usage(const char *reason)
 	}
 
 	PRINT_MODULE_DESCRIPTION(
-		R"DESCR_STR(
+			R"DESCR_STR(
 ### Description
 Section that describes the provided module functionality.
 
@@ -71,8 +76,11 @@ $ module start -f -p 42
 
 	PRINT_MODULE_USAGE_NAME("obstacle_avoidance", "modules");
 	PRINT_MODULE_USAGE_COMMAND("start");
-	PRINT_MODULE_USAGE_PARAM_FLAG('f', "Optional oa flag", true);
-	PRINT_MODULE_USAGE_PARAM_INT('p', 0, 0, 1000, "Optional oa parameter", true);
+	PRINT_MODULE_USAGE_PARAM_FLAG('e', "Enable attitude control", false);
+	PRINT_MODULE_USAGE_PARAM_INT('r', 100, 0, 500, "Red line threshold in cm", false);
+	PRINT_MODULE_USAGE_PARAM_INT('g', 1000, 0, 1200, "Green line threshold in cm", false);
+	PRINT_MODULE_USAGE_PARAM_FLOAT('t', 2.0, 0.0, 1000.0, "time threshold in second", false);
+
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
@@ -108,11 +116,11 @@ int Obstacle_Avoidance::custom_command(int argc, char *argv[])
 int Obstacle_Avoidance::task_spawn(int argc, char *argv[])
 {
 	_task_id = px4_task_spawn_cmd("Obstacle Avoidance",
-				      SCHED_DEFAULT,
-				      SCHED_PRIORITY_DEFAULT,
-				      2000,
-				      (px4_main_t)&run_trampoline,
-				      (char *const *)argv);
+			SCHED_DEFAULT,
+			SCHED_PRIORITY_DEFAULT,
+			2000,
+			(px4_main_t)&run_trampoline,
+			(char *const *)argv);
 
 	if (_task_id < 0) {
 		_task_id = -1;
@@ -124,8 +132,12 @@ int Obstacle_Avoidance::task_spawn(int argc, char *argv[])
 
 Obstacle_Avoidance *Obstacle_Avoidance::instantiate(int argc, char *argv[])
 {
-	int example_param = 0;
-	bool example_flag = false;
+	//int example_param = 0;
+	red_line_distance_local = 0;
+	green_line_distance_local = 0;
+	time_threshold_local = 0;
+	control_en_flag_local = false;
+	//bool example_flag = false;
 	bool error_flag = false;
 
 	int myoptind = 1;
@@ -133,14 +145,22 @@ Obstacle_Avoidance *Obstacle_Avoidance::instantiate(int argc, char *argv[])
 	const char *myoptarg = nullptr;
 
 	// parse CLI arguments
-	while ((ch = px4_getopt(argc, argv, "p:f", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "r:g:t:e", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
-		case 'p':
-			example_param = (int)strtol(myoptarg, nullptr, 10);
+		case 'r':
+			red_line_distance_local = (int)strtol(myoptarg, nullptr, 10);
 			break;
 
-		case 'f':
-			example_flag = true;
+		case 'g':
+			green_line_distance_local = (int)strtol(myoptarg, nullptr, 10);
+			break;
+
+		case 't':
+			time_threshold_local = (float)strtol(myoptarg, nullptr, 10);
+			break;
+
+		case 'e':
+			control_en_flag_local = true;
 			break;
 
 		case '?':
@@ -158,7 +178,7 @@ Obstacle_Avoidance *Obstacle_Avoidance::instantiate(int argc, char *argv[])
 		return nullptr;
 	}
 
-	Obstacle_Avoidance *instance = new Obstacle_Avoidance(example_param, example_flag);
+	Obstacle_Avoidance *instance = new Obstacle_Avoidance(red_line_distance_local, green_line_distance_local, time_threshold_local, control_en_flag_local);
 
 	if (instance == nullptr) {
 		PX4_ERR("alloc failed");
@@ -167,8 +187,8 @@ Obstacle_Avoidance *Obstacle_Avoidance::instantiate(int argc, char *argv[])
 	return instance;
 }
 
-Obstacle_Avoidance::Obstacle_Avoidance(int example_param, bool example_flag)
-	: ModuleParams(nullptr)
+Obstacle_Avoidance::Obstacle_Avoidance(int red_line_distance, int green_line_distance, float time_threshold,  bool control_en_flag)
+: ModuleParams(nullptr)
 {
 }
 
@@ -177,6 +197,7 @@ void Obstacle_Avoidance::run()
 	// Example: run the loop synchronized to the sensor_combined topic publication
 	int distance_sensor_sub = orb_subscribe(ORB_ID(distance_sensor));
 	int acc_sensor_sub = orb_subscribe(ORB_ID(sensor_combined));
+	int vel_sub = orb_subscribe(ORB_ID(vehicle_local_position));
 	//orb_advert_t	_mavlink_log_pub;		/**< mavlink log advert */
 	px4_pollfd_struct_t fds[1];
 	fds[0].fd = distance_sensor_sub;
@@ -206,15 +227,32 @@ void Obstacle_Avoidance::run()
 			orb_copy(ORB_ID(distance_sensor), distance_sensor_sub, &distance_sensor);
 			struct sensor_combined_s acc_sensor;
 			orb_copy(ORB_ID(sensor_combined), acc_sensor_sub, &acc_sensor);
+			struct vehicle_local_position_s vel_reading;
+			orb_copy(ORB_ID(vehicle_local_position), vel_sub, &vel_reading);
 			// TODO: do something with the data...
 			if(distance_sensor.orientation == distance_sensor_s::ROTATION_FORWARD_FACING) //make tf mini data processed only facing forward
 			{
 				//sensor.accelerometer_m_s2[0];
-				printf("acc sensor readings: %.3f, %.3f, %.3f\n", (double)acc_sensor.accelerometer_m_s2[0], (double)acc_sensor.accelerometer_m_s2[1], (double)acc_sensor.accelerometer_m_s2[2]);				//mavlink_log_info(&_mavlink_log_pub, "[oa] running");
+				//printf("acc sensor readings: %.3f, %.3f, %.3f\n", (double)acc_sensor.accelerometer_m_s2[0], (double)acc_sensor.accelerometer_m_s2[1], (double)acc_sensor.accelerometer_m_s2[2]);				//mavlink_log_info(&_mavlink_log_pub, "[oa] running");
+				//printf("param get: %i, %i, %.1f, %i\n", red_line_distance_local, green_line_distance_local, (double)time_threshold_local, control_en_flag_local);
+				//mavlink_log_info(&_mavlink_log_pub, "[oa] running");
+
+				if(vel_reading.vx > 0){ //only deal with uav fly towards obstacle
+					if((distance_sensor.current_distance > ( ((float)red_line_distance_local) / 100) )){
+						if((vel_reading.vx * time_threshold_local) > (distance_sensor.current_distance -  ( ((float)red_line_distance_local) / 100))) //cm
+						{
+							printf("I get it, current distance %.3f, vel %.3f, time_thre %.1f, red line %i \n", (double)distance_sensor.current_distance, (double)vel_reading.vx, (double)time_threshold_local, red_line_distance_local);
+
+						}
+					}
+					else
+					{
+						printf("distance is smaller than red line threshold\n");
+
+					}
+				}
 
 			}
-
-			//mavlink_log_info(&_mavlink_log_pub, "[oa] running");
 
 		}
 
@@ -222,6 +260,8 @@ void Obstacle_Avoidance::run()
 	}
 
 	orb_unsubscribe(distance_sensor_sub);
+	orb_unsubscribe(vel_sub);
+	orb_unsubscribe(acc_sensor_sub);
 	orb_unsubscribe(parameter_update_sub);
 }
 

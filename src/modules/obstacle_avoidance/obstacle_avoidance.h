@@ -42,7 +42,7 @@ extern "C" __EXPORT int obstacle_avoidance_main(int argc, char *argv[]);
 class Obstacle_Avoidance : public ModuleBase<Obstacle_Avoidance>, public ModuleParams
 {
 public:
-	Obstacle_Avoidance(int example_param, bool example_flag);
+	Obstacle_Avoidance(int red_line_distance, int green_line_distance, float time_threshold,  bool control_en_flag);
 
 	virtual ~Obstacle_Avoidance() = default;
 
@@ -73,10 +73,9 @@ private:
 	 */
 	void parameters_update(int parameter_update_sub, bool force = false);
 
-
 	DEFINE_PARAMETERS(
-		(ParamInt<px4::params::SYS_AUTOSTART>) _sys_autostart,   /**< example parameter */
-		(ParamInt<px4::params::SYS_AUTOCONFIG>) _sys_autoconfig  /**< another parameter */
+			(ParamInt<px4::params::SYS_AUTOSTART>) _sys_autostart,   /**< example parameter */
+			(ParamInt<px4::params::SYS_AUTOCONFIG>) _sys_autoconfig  /**< another parameter */
 	)
 };
 

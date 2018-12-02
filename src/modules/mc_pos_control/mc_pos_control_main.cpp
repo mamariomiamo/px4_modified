@@ -68,6 +68,8 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/obstacle_avoidance_distance.h>
+
 
 #include <float.h>
 #include <lib/ecl/geo/geo.h>
@@ -150,6 +152,7 @@ private:
 	int		_local_pos_sub;			/**< vehicle local position */
 	int		_pos_sp_triplet_sub;		/**< position setpoint triplet */
 	int		_home_pos_sub; 			/**< home position */
+	int		_oa_sub; 			/**< oa cmd */
 
 	orb_advert_t	_att_sp_pub;			/**< attitude setpoint publication */
 	orb_advert_t	_local_pos_sp_pub;		/**< vehicle local position setpoint publication */
@@ -166,6 +169,8 @@ private:
 	struct position_setpoint_triplet_s		_pos_sp_triplet;	/**< vehicle global position setpoint triplet */
 	struct vehicle_local_position_setpoint_s	_local_pos_sp;		/**< vehicle local position setpoint */
 	struct home_position_s				_home_pos; 				/**< home position */
+	struct obstacle_avoidance_distance_s oa_cmd;
+
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MPC_FLT_TSK>) _test_flight_tasks, /**< temporary flag for the transition to flight tasks */
@@ -442,6 +447,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_local_pos_sub(-1),
 	_pos_sp_triplet_sub(-1),
 	_home_pos_sub(-1),
+	_oa_sub(-1),
 
 	/* publications */
 	_att_sp_pub(nullptr),
@@ -746,6 +752,12 @@ MulticopterPositionControl::poll_subscriptions()
 
 	if (updated) {
 		orb_copy(ORB_ID(home_position), _home_pos_sub, &_home_pos);
+	}
+
+	orb_check(_oa_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(obstacle_avoidance_distance), _oa_sub, &oa_cmd);
 	}
 }
 
@@ -2931,6 +2943,7 @@ MulticopterPositionControl::task_main()
 	_local_pos_sub = orb_subscribe(ORB_ID(vehicle_local_position));
 	_pos_sp_triplet_sub = orb_subscribe(ORB_ID(position_setpoint_triplet));
 	_home_pos_sub = orb_subscribe(ORB_ID(home_position));
+	_oa_sub = orb_subscribe(ORB_ID(obstacle_avoidance_distance));
 
 	parameters_update(true);
 
@@ -3246,6 +3259,8 @@ MulticopterPositionControl::task_main()
 				}
 			}
 		}
+		//printf("I get it, obstacle_avoidance cmd x: %.3f, y:%.3f \n", (double)oa_cmd.oa_x, (double)oa_cmd.oa_y);
+
 	}
 
 	mavlink_log_info(&_mavlink_log_pub, "[mpc] stopped");

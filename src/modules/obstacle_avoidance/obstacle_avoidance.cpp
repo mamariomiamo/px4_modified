@@ -198,6 +198,9 @@ void Obstacle_Avoidance::run()
 	int distance_sensor_sub = orb_subscribe(ORB_ID(distance_sensor));
 	int acc_sensor_sub = orb_subscribe(ORB_ID(sensor_combined));
 	int vel_sub = orb_subscribe(ORB_ID(vehicle_local_position));
+	struct obstacle_avoidance_distance_s od_report;
+	orb_advert_t _obstacle_avoidance_distance_topic = orb_advertise(ORB_ID(obstacle_avoidance_distance), &od_report);
+
 	//orb_advert_t	_mavlink_log_pub;		/**< mavlink log advert */
 	px4_pollfd_struct_t fds[1];
 	fds[0].fd = distance_sensor_sub;
@@ -230,6 +233,8 @@ void Obstacle_Avoidance::run()
 			struct vehicle_local_position_s vel_reading;
 			orb_copy(ORB_ID(vehicle_local_position), vel_sub, &vel_reading);
 			// TODO: do something with the data...
+			od_report.oa_x = 0.0f;
+			od_report.oa_y = 0.0f;
 			if(distance_sensor.orientation == distance_sensor_s::ROTATION_FORWARD_FACING) //make tf mini data processed only facing forward
 			{
 				//sensor.accelerometer_m_s2[0];
@@ -243,16 +248,24 @@ void Obstacle_Avoidance::run()
 						{
 							printf("I get it, current distance %.3f, vel %.3f, time_thre %.1f, red line %i \n", (double)distance_sensor.current_distance, (double)vel_reading.vx, (double)time_threshold_local, red_line_distance_local);
 
+
+							od_report.oa_x = 1.0f;
+							od_report.oa_y = 2.0f;
+
 						}
 					}
 					else
 					{
 						printf("distance is smaller than red line threshold\n");
+						od_report.oa_x = 1.0f;
+						od_report.oa_y = 2.0f;
 
 					}
 				}
 
 			}
+			orb_publish(ORB_ID(obstacle_avoidance_distance), _obstacle_avoidance_distance_topic, &od_report);
+
 
 		}
 

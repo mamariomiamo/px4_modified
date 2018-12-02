@@ -69,7 +69,7 @@
 
 #include <uORB/uORB.h>
 #include <uORB/topics/distance_sensor.h>
-#include <uORB/topics/obstacle_avoidance_distance.h>
+//#include <uORB/topics/obstacle_avoidance_distance.h>
 
 #include <board_config.h>
 
@@ -127,7 +127,7 @@ private:
 	int                      _orb_class_instance;
 
 	orb_advert_t             _distance_sensor_topic;
-	orb_advert_t			 _obstacle_avoidance_distance_topic;
+	//orb_advert_t			 _obstacle_avoidance_distance_topic;
 
 	unsigned                 _consecutive_fail_count;
 
@@ -201,7 +201,7 @@ TFMINI::TFMINI(const char *port, uint8_t rotation) :
 			_class_instance(-1),
 			_orb_class_instance(-1),
 			_distance_sensor_topic(nullptr),
-			_obstacle_avoidance_distance_topic(nullptr),
+			//_obstacle_avoidance_distance_topic(nullptr),
 			_consecutive_fail_count(0),
 			_sample_perf(perf_alloc(PC_ELAPSED, "tfmini_read")),
 			_comms_errors(perf_alloc(PC_COUNT, "tfmini_com_err"))
@@ -350,14 +350,14 @@ TFMINI::init()
 		if (_distance_sensor_topic == nullptr) {
 			DEVICE_LOG("failed to create distance_sensor object. Did you start uOrb?");
 		}
-		struct obstacle_avoidance_distance_s od_report = {};
-
-		_obstacle_avoidance_distance_topic = orb_advertise_multi(ORB_ID(obstacle_avoidance_distance), &od_report,
-				&_orb_class_instance, ORB_PRIO_HIGH);
-
-		if (_obstacle_avoidance_distance_topic == nullptr) {
-			DEVICE_LOG("failed to create obstacle distance object. Did you start uOrb?");
-		}
+//		struct obstacle_avoidance_distance_s od_report = {};
+//
+//		_obstacle_avoidance_distance_topic = orb_advertise_multi(ORB_ID(obstacle_avoidance_distance), &od_report,
+//				&_orb_class_instance, ORB_PRIO_HIGH);
+//
+//		if (_obstacle_avoidance_distance_topic == nullptr) {
+//			DEVICE_LOG("failed to create obstacle distance object. Did you start uOrb?");
+//		}
 
 	} while (0);
 
@@ -622,16 +622,16 @@ TFMINI::collect()
 	{
 		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
 
-		struct obstacle_avoidance_distance_s od_report;
-		od_report.timestamp = hrt_absolute_time();
-		od_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
-		od_report.orientation = _rotation;
-		od_report.current_distance = distance_m;
-		od_report.min_distance = get_minimum_distance();
-		od_report.max_distance = get_maximum_distance();
-		od_report.covariance = 0.0f;
-
-		orb_publish(ORB_ID(obstacle_avoidance_distance), _obstacle_avoidance_distance_topic, &od_report);
+//		struct obstacle_avoidance_distance_s od_report;
+//		od_report.timestamp = hrt_absolute_time();
+//		od_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
+//		od_report.orientation = _rotation;
+//		od_report.current_distance = distance_m;
+//		od_report.min_distance = get_minimum_distance();
+//		od_report.max_distance = get_maximum_distance();
+//		od_report.covariance = 0.0f;
+//
+//		orb_publish(ORB_ID(obstacle_avoidance_distance), _obstacle_avoidance_distance_topic, &od_report);
 		break;
 	}
 
@@ -640,16 +640,16 @@ TFMINI::collect()
 		report.orientation = distance_sensor_s::ROTATION_FORWARD_FACING;
 		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
 
-		struct obstacle_avoidance_distance_s od_report;
-		od_report.timestamp = hrt_absolute_time();
-		od_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
-		od_report.orientation = distance_sensor_s::ROTATION_FORWARD_FACING;
-		od_report.current_distance = distance_m;
-		od_report.min_distance = get_minimum_distance();
-		od_report.max_distance = get_maximum_distance();
-		od_report.covariance = 0.0f;
-
-		orb_publish(ORB_ID(obstacle_avoidance_distance), _obstacle_avoidance_distance_topic, &od_report);
+//		struct obstacle_avoidance_distance_s od_report;
+//		od_report.timestamp = hrt_absolute_time();
+//		od_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
+//		od_report.orientation = distance_sensor_s::ROTATION_FORWARD_FACING;
+//		od_report.current_distance = distance_m;
+//		od_report.min_distance = get_minimum_distance();
+//		od_report.max_distance = get_maximum_distance();
+//		od_report.covariance = 0.0f;
+//
+//		orb_publish(ORB_ID(obstacle_avoidance_distance), _obstacle_avoidance_distance_topic, &od_report);
 		break;
 	}
 

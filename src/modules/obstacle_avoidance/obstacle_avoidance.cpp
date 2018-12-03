@@ -44,14 +44,20 @@
 #include <uORB/topics/sensor_combined.h>
 #include <systemlib/mavlink_log.h>
 #include <uORB/topics/vehicle_local_position.h>
-
+#include <uORB/topics/vehicle_attitude.h>
+#include <float.h>
+#include <lib/ecl/geo/geo.h>
+#include <mathlib/mathlib.h>
+#include <systemlib/mavlink_log.h>
+#include <matrix/matrix/math.hpp>
 
 
 int red_line_distance_local;
 int green_line_distance_local;
 float time_threshold_local;
 bool control_en_flag_local;
-
+matrix::Dcmf _R;
+float _yaw;
 int Obstacle_Avoidance::print_usage(const char *reason)
 {
 	if (reason) {
@@ -198,6 +204,7 @@ void Obstacle_Avoidance::run()
 	int distance_sensor_sub = orb_subscribe(ORB_ID(distance_sensor));
 	int acc_sensor_sub = orb_subscribe(ORB_ID(sensor_combined));
 	int vel_sub = orb_subscribe(ORB_ID(vehicle_local_position));
+	int att_sub = orb_subscribe(ORB_ID(vehicle_attitude));
 	struct obstacle_avoidance_distance_s od_report;
 	orb_advert_t _obstacle_avoidance_distance_topic = orb_advertise(ORB_ID(obstacle_avoidance_distance), &od_report);
 
@@ -232,9 +239,16 @@ void Obstacle_Avoidance::run()
 			orb_copy(ORB_ID(sensor_combined), acc_sensor_sub, &acc_sensor);
 			struct vehicle_local_position_s vel_reading;
 			orb_copy(ORB_ID(vehicle_local_position), vel_sub, &vel_reading);
-			// TODO: do something with the data...
-			od_report.oa_x = 0.0f;
+			struct vehicle_attitude_s att_reading;
+			orb_copy(ORB_ID(vehicle_attitude), att_sub, &att_reading);
+			/* get current rotation matrix and euler angles from control state quaternions */
+			_R = matrix::Quatf(att_reading.q);
+			_yaw = matrix::Eulerf(_R).psi();
+			float vel_x_local = cosf(_yaw) * vel_reading.vx - sinf(_yaw) * vel_reading.vy; //convert from ned to local frame, to get local velocity forward facing
+			float vel_y_local = 0.0f;
+			od_report.oa_x = 0.0f; //if no obstacle detected, velocity setpoint will not be affected
 			od_report.oa_y = 0.0f;
+			//float real_obstacle_distance = distance_sensor.current_distance * cos(acc_sensor); //add angle correction in future
 			if(distance_sensor.orientation == distance_sensor_s::ROTATION_FORWARD_FACING) //make tf mini data processed only facing forward
 			{
 				//sensor.accelerometer_m_s2[0];
@@ -242,27 +256,47 @@ void Obstacle_Avoidance::run()
 				//printf("param get: %i, %i, %.1f, %i\n", red_line_distance_local, green_line_distance_local, (double)time_threshold_local, control_en_flag_local);
 				//mavlink_log_info(&_mavlink_log_pub, "[oa] running");
 
-				if(vel_reading.vx > 0){ //only deal with uav fly towards obstacle
-					if((distance_sensor.current_distance > ( ((float)red_line_distance_local) / 100) )){
-						if((vel_reading.vx * time_threshold_local) > (distance_sensor.current_distance -  ( ((float)red_line_distance_local) / 100))) //cm
+				//only deal with uav fly towards obstacle
+				//dynamic x axis brake between red and green line
+
+				if((distance_sensor.current_distance > ( ((float)red_line_distance_local) / 100) ) && (distance_sensor.current_distance < ( ((float)green_line_distance_local) / 100) )){
+					if((vel_x_local > 0) ){
+						if((vel_x_local>0) && (vel_x_local * time_threshold_local) > (distance_sensor.current_distance -  ( ((float)red_line_distance_local) / 100))) //cm
 						{
-							printf("I get it, current distance %.3f, vel %.3f, time_thre %.1f, red line %i \n", (double)distance_sensor.current_distance, (double)vel_reading.vx, (double)time_threshold_local, red_line_distance_local);
+							//printf("I get it, current distance %.3f, vel %.3f, time_thre %.1f, red line %i \n", (double)distance_sensor.current_distance, (double)vel_reading.vx, (double)time_threshold_local, red_line_distance_local);
+							printf("UAV is going to hit red circle %.3f, vel %.3f, time_thre %.1f, red line %i \n", (double)distance_sensor.current_distance, (double)vel_reading.vx, (double)time_threshold_local, red_line_distance_local);
+							//float control_x_vel_scaled = -vel_reading.vx;
+
+							od_report.oa_x = cosf(_yaw) * (-1) * vel_x_local - sinf(_yaw) * vel_y_local;//-vel_x_local;
+							od_report.oa_y = sinf(_yaw) * vel_x_local + cosf(_yaw) * vel_y_local; //will not set y axis here
 
 
-							od_report.oa_x = 1.0f;
-							od_report.oa_y = 2.0f;
 
 						}
 					}
 					else
-					{
-						printf("distance is smaller than red line threshold\n");
-						od_report.oa_x = 1.0f;
-						od_report.oa_y = 2.0f;
-
+					{//safe, ignore
+						od_report.oa_x = 0.0f;
+						od_report.oa_y = 0.0f;
 					}
 				}
+				else if(distance_sensor.current_distance > ( ((float)green_line_distance_local) / 100) )
+				{// longer than green line, ignore
+					od_report.oa_x = 0.0f;
+					od_report.oa_y = 0.0f;
+				}
+				else
+				{//in danger, set max speed override
+					printf("distance is smaller than red line threshold, %.3f\n", (double)distance_sensor.current_distance);
+					//od_report.oa_x = -0.8f; //set max speed set in pixracer
+					//od_report.oa_y = 0.0f;
+					vel_x_local = -0.8f;
+					od_report.oa_x = cosf(_yaw) *  vel_x_local - sinf(_yaw) * vel_y_local;//-vel_x_local;
+					od_report.oa_y = sinf(_yaw) * vel_x_local + cosf(_yaw) * vel_y_local; //will not set y axis here
 
+				}
+
+				//printf("I get it, current distance %.3f, vel %.3f, time_thre %.1f, red line %i \n", (double)distance_sensor.current_distance, (double)vel_reading.vx, (double)time_threshold_local, red_line_distance_local);
 			}
 			orb_publish(ORB_ID(obstacle_avoidance_distance), _obstacle_avoidance_distance_topic, &od_report);
 

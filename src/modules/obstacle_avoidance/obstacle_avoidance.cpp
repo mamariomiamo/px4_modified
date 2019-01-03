@@ -264,11 +264,13 @@ void Obstacle_Avoidance::run()
 						if((vel_x_local>0) && (vel_x_local * time_threshold_local) > (distance_sensor.current_distance -  ( ((float)red_line_distance_local) / 100))) //cm
 						{
 							//printf("I get it, current distance %.3f, vel %.3f, time_thre %.1f, red line %i \n", (double)distance_sensor.current_distance, (double)vel_reading.vx, (double)time_threshold_local, red_line_distance_local);
-							printf("UAV is going to hit red circle %.3f, vel %.3f, time_thre %.1f, red line %i \n", (double)distance_sensor.current_distance, (double)vel_reading.vx, (double)time_threshold_local, red_line_distance_local);
+							//printf("UAV is going to hit red circle %.3f, vel %.3f, time_thre %.1f, red line %i \n", (double)distance_sensor.current_distance, (double)vel_reading.vx, (double)time_threshold_local, red_line_distance_local);
 							//float control_x_vel_scaled = -vel_reading.vx;
 
-							od_report.oa_x = cosf(_yaw) * (-1) * vel_x_local - sinf(_yaw) * vel_y_local;//-vel_x_local;
-							od_report.oa_y = sinf(_yaw) * vel_x_local + cosf(_yaw) * vel_y_local; //will not set y axis here
+							//od_report.oa_x = cosf(_yaw) * (-1) * vel_x_local - sinf(_yaw) * vel_y_local;//-vel_x_local;
+							//od_report.oa_y = sinf(_yaw) * vel_x_local + cosf(_yaw) * vel_y_local; //will not set y axis here
+							od_report.oa_x = -vel_x_local;
+							od_report.oa_y = vel_y_local;
 
 
 
@@ -287,12 +289,14 @@ void Obstacle_Avoidance::run()
 				}
 				else
 				{//in danger, set max speed override
-					printf("distance is smaller than red line threshold, %.3f\n", (double)distance_sensor.current_distance);
+					//printf("distance is smaller than red line threshold, %.3f\n", (double)distance_sensor.current_distance);
 					//od_report.oa_x = -0.8f; //set max speed set in pixracer
 					//od_report.oa_y = 0.0f;
 					vel_x_local = -0.8f;
-					od_report.oa_x = cosf(_yaw) *  vel_x_local - sinf(_yaw) * vel_y_local;//-vel_x_local;
-					od_report.oa_y = sinf(_yaw) * vel_x_local + cosf(_yaw) * vel_y_local; //will not set y axis here
+					od_report.oa_x = vel_x_local;
+					od_report.oa_y = vel_y_local;
+					//od_report.oa_x = cosf(_yaw) *  vel_x_local - sinf(_yaw) * vel_y_local;//-vel_x_local;
+					//od_report.oa_y = sinf(_yaw) * vel_x_local + cosf(_yaw) * vel_y_local; //will not set y axis here
 
 				}
 

@@ -1277,13 +1277,25 @@ MulticopterPositionControl::control_manual()
 		/* reset alt setpoint to current altitude if needed */
 		reset_alt_sp();
 	}
+	/* set horizontal velocity setpoint with roll/pitch stick */
+	man_vel_sp(0) = math::expo_deadzone(_manual.x, _xy_vel_man_expo.get(), _hold_dz.get());
+	man_vel_sp(1) = math::expo_deadzone(_manual.y, _xy_vel_man_expo.get(), _hold_dz.get());
 
+
+	matrix::Vector3f oa_vel_sp;
 	if (_control_mode.flag_control_position_enabled) {
-		/* set horizontal velocity setpoint with roll/pitch stick */
-		man_vel_sp(0) = math::expo_deadzone(_manual.x, _xy_vel_man_expo.get(), _hold_dz.get());
-		man_vel_sp(1) = math::expo_deadzone(_manual.y, _xy_vel_man_expo.get(), _hold_dz.get());
-
-		const float man_vel_hor_length = ((matrix::Vector2f)man_vel_sp.slice<2, 1>(0, 0)).length();
+		if(_manual.aux1 > 0)//need to test depends on rc channel settings, aux for enable obstacle avoidance assist mode, this mode is under posctl mode
+		{
+			if(oa_cmd.oa_x < -0.05f || oa_cmd.oa_x > 0.05f) //means reverse control enabled
+			{
+				oa_vel_sp(0) = oa_cmd.oa_x;
+				if(oa_vel_sp(0) < -0.7f){
+				man_vel_sp(0) = -1.0f;
+				}
+				//printf("I get it, obstacle_avoidance cmd x: %.3f, y:%.3f \n", (double)oa_cmd.oa_x, (double)oa_cmd.oa_y);
+			}
+		}
+	const float man_vel_hor_length = ((matrix::Vector2f)man_vel_sp.slice<2, 1>(0, 0)).length();
 
 		/* saturate such that magnitude is never larger than 1 */
 		if (man_vel_hor_length > 1.0f) {
@@ -1393,25 +1405,24 @@ MulticopterPositionControl::control_manual()
 		_vel_sp(2) = man_vel_sp(2);
 	}
 
-	matrix::Vector3f oa_vel_sp = man_vel_sp;
+	//matrix::Vector3f oa_vel_sp = man_vel_sp;
 
-	if(_manual.aux1 > 0)//need to test depends on rc channel settings, aux for enable obstacle avoidance assist mode, this mode is under posctl mode
-	{
-		if(oa_cmd.oa_x < -0.05f || oa_cmd.oa_x > 0.05f) //means reverse control enabled
-		{
-			oa_vel_sp(0) = oa_cmd.oa_x;
-			printf("I get it, obstacle_avoidance cmd x: %.3f, y:%.3f \n", (double)oa_cmd.oa_x, (double)oa_cmd.oa_y);
-		}
-	}
+//	if(_manual.aux1 > 0)//need to test depends on rc channel settings, aux for enable obstacle avoidance assist mode, this mode is under posctl mode
+//	{
+//		if(oa_cmd.oa_x < -0.05f || oa_cmd.oa_x > 0.05f) //means reverse control enabled
+//		{
+//			oa_vel_sp(0) = oa_cmd.oa_x;
+//			printf("I get it, obstacle_avoidance cmd x: %.3f, y:%.3f \n", (double)oa_cmd.oa_x, (double)oa_cmd.oa_y);
+//		}
+//	}
 	if (!_pos_hold_engaged) {
 
 		_pos_sp(0) = _pos(0);
 		_pos_sp(1) = _pos(1);
 		_run_pos_control = false; /* request velocity setpoint to be used, instead of position setpoint */
 		//_vel_sp(0) = man_vel_sp(0); //ericweiye obstacle avoidance command send here
-		_vel_sp(0) = oa_vel_sp(0);
-		_vel_sp(1) = man_vel_sp(1);
-		//printf("I get it, obstacle_avoidance cmd x: %.3f, y:%.3f \n", (double)oa_cmd.oa_x, (double)oa_cmd.oa_y);
+		_vel_sp(1) = man_vel_sp(1); //ericweiye obstacle avoidance command send here
+		_vel_sp(0) = man_vel_sp(0);//oa_vel_sp(0);		//printf("I get it, obstacle_avoidance cmd x: %.3f, y:%.3f \n", (double)oa_cmd.oa_x, (double)oa_cmd.oa_y);
 
 	}
 

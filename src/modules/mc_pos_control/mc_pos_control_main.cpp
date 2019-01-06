@@ -1277,13 +1277,14 @@ MulticopterPositionControl::control_manual()
 		/* reset alt setpoint to current altitude if needed */
 		reset_alt_sp();
 	}
-	/* set horizontal velocity setpoint with roll/pitch stick */
-	man_vel_sp(0) = math::expo_deadzone(_manual.x, _xy_vel_man_expo.get(), _hold_dz.get());
-	man_vel_sp(1) = math::expo_deadzone(_manual.y, _xy_vel_man_expo.get(), _hold_dz.get());
+
 
 
 	matrix::Vector3f oa_vel_sp;
 	if (_control_mode.flag_control_position_enabled) {
+		/* set horizontal velocity setpoint with roll/pitch stick */
+		man_vel_sp(0) = math::expo_deadzone(_manual.x, _xy_vel_man_expo.get(), _hold_dz.get());
+		man_vel_sp(1) = math::expo_deadzone(_manual.y, _xy_vel_man_expo.get(), _hold_dz.get());
 		if(_manual.aux1 > 0)//need to test depends on rc channel settings, aux for enable obstacle avoidance assist mode, this mode is under posctl mode
 		{
 			if(oa_cmd.oa_x < -0.05f || oa_cmd.oa_x > 0.05f) //means reverse control enabled
@@ -2852,7 +2853,7 @@ MulticopterPositionControl::generate_attitude_setpoint()
 		 * This allows a simple limitation of the tilt angle, the vehicle flies towards the direction that the stick
 		 * points to, and changes of the stick input are linear.
 		 */
-		const float x = _manual.x * _man_tilt_max;
+		const float x = _manual.x * _man_tilt_max; //ericweiye add oa_x here maybe
 		const float y = _manual.y * _man_tilt_max;
 
 		// we want to fly towards the direction of (x, y), so we use a perpendicular axis angle vector in the XY-plane

@@ -2853,7 +2853,19 @@ MulticopterPositionControl::generate_attitude_setpoint()
 		 * This allows a simple limitation of the tilt angle, the vehicle flies towards the direction that the stick
 		 * points to, and changes of the stick input are linear.
 		 */
-		const float x = _manual.x * _man_tilt_max; //ericweiye add oa_x here maybe
+		//const float x = _manual.x * _man_tilt_max; //ericweiye add oa_x here maybe
+		float final_x = 0.0f;
+		if(oa_cmd.oa_x < -0.05f || oa_cmd.oa_x > 0.05f) //means reverse control enabled
+		{
+			if(!_control_mode.flag_control_position_enabled && !_vehicle_land_detected.landed){
+			final_x = -0.3f; //this value based on different platform
+			}
+		}
+		else
+		{
+			final_x = _manual.x;
+		}
+		const float x = final_x * _man_tilt_max;
 		const float y = _manual.y * _man_tilt_max;
 
 		// we want to fly towards the direction of (x, y), so we use a perpendicular axis angle vector in the XY-plane

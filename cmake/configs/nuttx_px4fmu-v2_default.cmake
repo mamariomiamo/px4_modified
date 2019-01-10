@@ -46,6 +46,8 @@ set(config_module_list
 	#drivers/tap_esc
 	drivers/vmount
 
+	#drivers/flow_breakout
+
 	# distance sensors
 	drivers/distance_sensor/ll40ls
 	#drivers/distance_sensor/mb12xx

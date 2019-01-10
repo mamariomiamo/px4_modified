@@ -63,6 +63,7 @@
 #include <drivers/drv_range_finder.h>
 #include <drivers/device/device.h>
 #include <drivers/device/ringbuffer.h>
+#include <drivers/drv_px4flow.h>
 
 #include <uORB/uORB.h>
 #include <uORB/topics/distance_sensor.h>
@@ -70,6 +71,11 @@
 
 #include <board_config.h>
 
+//#ifdef USE_BINARY_PARSER
+//#include "flow_breakout_parser.h"
+//#else
+//#include "drivers/distance_sensor/sf0x/sf0x_parser.h"
+//#endif
 
 /* Configuration Constants */
 
@@ -195,8 +201,8 @@ FLOW_BRREAKOUT::FLOW_BRREAKOUT(const char *port, uint8_t rotation) :
 			_distance_sensor_topic(nullptr),
 			//_obstacle_avoidance_distance_topic(nullptr),
 			_consecutive_fail_count(0),
-			_sample_perf(perf_alloc(PC_ELAPSED, "tfmini_read")),
-			_comms_errors(perf_alloc(PC_COUNT, "tfmini_com_err"))
+			_sample_perf(perf_alloc(PC_ELAPSED, "flow_breakout_read")),
+			_comms_errors(perf_alloc(PC_COUNT, "flow_breakout_com_err"))
 {
 	/* store port name */
 	strncpy(_port, port, sizeof(_port));
@@ -231,25 +237,25 @@ FLOW_BRREAKOUT::~FLOW_BRREAKOUT()
 int
 FLOW_BRREAKOUT::init()
 {
-	int32_t hw_model;
-	param_get(param_find("SENS_EN_TFMINI"), &hw_model);
-	param_get(param_find("SENS_MODE_TFMINI"), &tfmini_mode);
+	//int32_t hw_model;
+	//param_get(param_find("SENS_EN_TFMINI"), &hw_model);
+	//param_get(param_find("SENS_MODE_TFMINI"), &tfmini_mode);
 
-	switch (hw_model) {
-	case 0:
-		DEVICE_LOG("disabled.");
-		return 0;
-
-	case 1: /* TFMINI (12m, 100 Hz)*/
-		_min_distance = 0.3f;
-		_max_distance = 12.0f;
-		_conversion_interval =	10000;
-		break;
-
-	default:
-		DEVICE_LOG("invalid HW model %d.", hw_model);
-		return -1;
-	}
+//	switch (hw_model) {
+//	case 0:
+//		DEVICE_LOG("disabled.");
+//		return 0;
+//
+//	case 1: /* TFMINI (12m, 100 Hz)*/
+//		_min_distance = 0.3f;
+//		_max_distance = 12.0f;
+//		_conversion_interval =	10000;
+//		break;
+//
+//	default:
+//		DEVICE_LOG("invalid HW model %d.", hw_model);
+//		return -1;
+//	}
 
 	/* status */
 	int ret = 0;
@@ -265,7 +271,7 @@ FLOW_BRREAKOUT::init()
 		}
 
 		/*baudrate 115200, 8 bits, no parity, 1 stop bit */
-		unsigned speed = B115200;
+		unsigned speed = B9600;
 
 		struct termios uart_config;
 
@@ -312,7 +318,7 @@ FLOW_BRREAKOUT::init()
 		uart_config.c_cc[VTIME] = 1;
 
 		if (_fd < 0) {
-			warnx("FAIL: laser fd");
+			warnx("FAIL: flow fd");
 			ret = -1;
 			break;
 		}
@@ -323,7 +329,7 @@ FLOW_BRREAKOUT::init()
 		if (ret != OK) { break; }
 
 		/* allocate basic report buffers */
-		_reports = new ringbuffer::RingBuffer(2, sizeof(distance_sensor_s));
+		//_reports = new ringbuffer::RingBuffer(2, sizeof(distance_sensor_s));
 
 		if (_reports == nullptr) {
 			warnx("mem err");
@@ -331,17 +337,17 @@ FLOW_BRREAKOUT::init()
 			break;
 		}
 
-		_class_instance = register_class_devname(RANGE_FINDER_BASE_DEVICE_PATH);
+		//_class_instance = register_class_devname(RANGE_FINDER_BASE_DEVICE_PATH);
 
 		/* get a publish handle on the range finder topic */
-		struct distance_sensor_s ds_report = {};
+		//struct distance_sensor_s ds_report = {};
 
-		_distance_sensor_topic = orb_advertise_multi(ORB_ID(distance_sensor), &ds_report,
-				&_orb_class_instance, ORB_PRIO_HIGH);
+		//_distance_sensor_topic = orb_advertise_multi(ORB_ID(distance_sensor), &ds_report,
+		//		&_orb_class_instance, ORB_PRIO_HIGH);
 
-		if (_distance_sensor_topic == nullptr) {
-			DEVICE_LOG("failed to create distance_sensor object. Did you start uOrb?");
-		}
+		//if (_distance_sensor_topic == nullptr) {
+		//	DEVICE_LOG("failed to create distance_sensor object. Did you start uOrb?");
+		//}
 //		struct obstacle_avoidance_distance_s od_report = {};
 //
 //		_obstacle_avoidance_distance_topic = orb_advertise_multi(ORB_ID(obstacle_avoidance_distance), &od_report,
@@ -359,6 +365,30 @@ FLOW_BRREAKOUT::init()
 
 	return ret;
 }
+
+//void
+//FLOW_BRREAKOUT::set_minimum_distance(float min)
+//{
+//	_min_distance = min;
+//}
+//
+//void
+//FLOW_BRREAKOUT::set_maximum_distance(float max)
+//{
+//	_max_distance = max;
+//}
+//
+//float
+//FLOW_BRREAKOUT::get_minimum_distance()
+//{
+//	return _min_distance;
+//}
+//
+//float
+//FLOW_BRREAKOUT::get_maximum_distance()
+//{
+//	return _max_distance;
+//}
 
 int
 FLOW_BRREAKOUT::ioctl(device::file_t *filp, int cmd, unsigned long arg)
@@ -550,84 +580,84 @@ FLOW_BRREAKOUT::collect()
 
 	_last_read = hrt_absolute_time();
 
-	float distance_m = -1.0f;
-	bool valid = false;
+	//float distance_m = -1.0f;
+//	bool valid = false;
+//
+//	for (int i = 0; i < ret; i++) {
+//#ifdef USE_BINARY_PARSER
+//		if (OK == tfmini_parser(readbuf[i], _linebuf, &_linebuf_index, &_parse_state, &distance_m)) {
+//			valid = true;
+//		}
+//#else
+//		if (OK == sf0x_parser(readbuf[i], _linebuf, &_linebuf_index, &_parse_state, &distance_m)) {
+//			valid = true;
+//		}
+//#endif
+//	}
 
-	for (int i = 0; i < ret; i++) {
-#ifdef USE_BINARY_PARSER
-		if (OK == tfmini_parser(readbuf[i], _linebuf, &_linebuf_index, &_parse_state, &distance_m)) {
-			valid = true;
-		}
-#else
-		if (OK == sf0x_parser(readbuf[i], _linebuf, &_linebuf_index, &_parse_state, &distance_m)) {
-			valid = true;
-		}
-#endif
-	}
+//	if (!valid) {
+//		return -EAGAIN;
+//	}
 
-	if (!valid) {
-		return -EAGAIN;
-	}
+//	DEVICE_DEBUG("val (float): %8.4f, raw: %s, valid: %s", (double)distance_m, _linebuf, ((valid) ? "OK" : "NO"));
 
-	DEVICE_DEBUG("val (float): %8.4f, raw: %s, valid: %s", (double)distance_m, _linebuf, ((valid) ? "OK" : "NO"));
-
-	struct distance_sensor_s report;
-
-	report.timestamp = hrt_absolute_time();
-	report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
-	report.orientation = _rotation;
-	report.current_distance = distance_m;
-	report.min_distance = get_minimum_distance();
-	report.max_distance = get_maximum_distance();
-	report.covariance = 0.0f;
-	/* TODO: set proper ID */
-	report.id = 0;
+//	struct distance_sensor_s report;
+//
+//	report.timestamp = hrt_absolute_time();
+//	report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
+//	report.orientation = _rotation;
+//	report.current_distance = distance_m;
+//	report.min_distance = get_minimum_distance();
+//	report.max_distance = get_maximum_distance();
+//	report.covariance = 0.0f;
+//	/* TODO: set proper ID */
+//	report.id = 0;
 
 	/* publish it */
-	switch(tfmini_mode){
-
-	case 0:
-	{
-		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
-
-//		struct obstacle_avoidance_distance_s od_report;
-//		od_report.timestamp = hrt_absolute_time();
-//		od_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
-//		od_report.orientation = _rotation;
-//		od_report.current_distance = distance_m;
-//		od_report.min_distance = get_minimum_distance();
-//		od_report.max_distance = get_maximum_distance();
-//		od_report.covariance = 0.0f;
+//	switch(tfmini_mode){
 //
-//		orb_publish(ORB_ID(obstacle_avoidance_distance), _obstacle_avoidance_distance_topic, &od_report);
-		break;
-	}
-
-	case 1:
-	{
-		report.orientation = distance_sensor_s::ROTATION_FORWARD_FACING;
-		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
-
-//		struct obstacle_avoidance_distance_s od_report;
-//		od_report.timestamp = hrt_absolute_time();
-//		od_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
-//		od_report.orientation = distance_sensor_s::ROTATION_FORWARD_FACING;
-//		od_report.current_distance = distance_m;
-//		od_report.min_distance = get_minimum_distance();
-//		od_report.max_distance = get_maximum_distance();
-//		od_report.covariance = 0.0f;
+//	case 0:
+//	{
+//		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
 //
-//		orb_publish(ORB_ID(obstacle_avoidance_distance), _obstacle_avoidance_distance_topic, &od_report);
-		break;
-	}
+////		struct obstacle_avoidance_distance_s od_report;
+////		od_report.timestamp = hrt_absolute_time();
+////		od_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
+////		od_report.orientation = _rotation;
+////		od_report.current_distance = distance_m;
+////		od_report.min_distance = get_minimum_distance();
+////		od_report.max_distance = get_maximum_distance();
+////		od_report.covariance = 0.0f;
+////
+////		orb_publish(ORB_ID(obstacle_avoidance_distance), _obstacle_avoidance_distance_topic, &od_report);
+//		break;
+//	}
+//
+//	case 1:
+//	{
+//		report.orientation = distance_sensor_s::ROTATION_FORWARD_FACING;
+//		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
+//
+////		struct obstacle_avoidance_distance_s od_report;
+////		od_report.timestamp = hrt_absolute_time();
+////		od_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
+////		od_report.orientation = distance_sensor_s::ROTATION_FORWARD_FACING;
+////		od_report.current_distance = distance_m;
+////		od_report.min_distance = get_minimum_distance();
+////		od_report.max_distance = get_maximum_distance();
+////		od_report.covariance = 0.0f;
+////
+////		orb_publish(ORB_ID(obstacle_avoidance_distance), _obstacle_avoidance_distance_topic, &od_report);
+//		break;
+//	}
+//
+//	default:
+//		break;
+//
+//	}
 
-	default:
-		break;
 
-	}
-
-
-	_reports->force(&report);
+	//_reports->force(&report);
 
 	/* notify anyone waiting for data */
 	poll_notify(POLLIN);
@@ -785,7 +815,8 @@ start(const char *port, uint8_t rotation)
 	}
 
 	/* set the poll rate to default, starts automatic data collection */
-	fd = px4_open(RANGE_FINDER0_DEVICE_PATH, O_RDONLY);
+	//fd = px4_open(RANGE_FINDER0_DEVICE_PATH, O_RDONLY);
+	fd = px4_open("/dev/flow_breakout", O_RDONLY);
 
 	if (fd < 0) {
 		warnx("Opening device '%s' failed");
@@ -834,60 +865,60 @@ void stop()
 void
 test()
 {
-	struct distance_sensor_s report;
-	ssize_t sz;
-
-	int fd = px4_open(RANGE_FINDER0_DEVICE_PATH, O_RDONLY);
-
-	if (fd < 0) {
-		err(1, "%s open failed (try 'flow_breakout start' if the driver is not running", RANGE_FINDER0_DEVICE_PATH);
-	}
-
-	/* do a simple demand read */
-	sz = px4_read(fd, &report, sizeof(report));
-
-	if (sz != sizeof(report)) {
-		err(1, "immediate read failed");
-	}
-
-	print_message(report);
-
-	/* start the sensor polling at 2 Hz rate */
-	if (OK != px4_ioctl(fd, SENSORIOCSPOLLRATE, 2)) {
-		errx(1, "failed to set 2Hz poll rate");
-	}
-
-	/* read the sensor 5x and report each value */
-	for (unsigned i = 0; i < 5; i++) {
-		px4_pollfd_struct_t fds{};
-
-		/* wait for data to be ready */
-		fds.fd = fd;
-		fds.events = POLLIN;
-		int ret = px4_poll(&fds, 1, 2000);
-
-		if (ret != 1) {
-			warnx("timed out");
-			break;
-		}
-
-		/* now go get it */
-		sz = px4_read(fd, &report, sizeof(report));
-
-		if (sz != sizeof(report)) {
-			warnx("read failed: got %d vs exp. %d", sz, sizeof(report));
-			break;
-		}
-
-		print_message(report);
-	}
-
-	/* reset the sensor polling to the default rate */
-	if (OK != px4_ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT)) {
-		errx(1, "ERR: DEF RATE");
-	}
-
-	errx(0, "PASS");
+//	struct distance_sensor_s report;
+//	ssize_t sz;
+//
+//	int fd = px4_open(RANGE_FINDER0_DEVICE_PATH, O_RDONLY);
+//
+//	if (fd < 0) {
+//		err(1, "%s open failed (try 'flow_breakout start' if the driver is not running", RANGE_FINDER0_DEVICE_PATH);
+//	}
+//
+//	/* do a simple demand read */
+//	sz = px4_read(fd, &report, sizeof(report));
+//
+//	if (sz != sizeof(report)) {
+//		err(1, "immediate read failed");
+//	}
+//
+//	print_message(report);
+//
+//	/* start the sensor polling at 2 Hz rate */
+//	if (OK != px4_ioctl(fd, SENSORIOCSPOLLRATE, 2)) {
+//		errx(1, "failed to set 2Hz poll rate");
+//	}
+//
+//	/* read the sensor 5x and report each value */
+//	for (unsigned i = 0; i < 5; i++) {
+//		px4_pollfd_struct_t fds{};
+//
+//		/* wait for data to be ready */
+//		fds.fd = fd;
+//		fds.events = POLLIN;
+//		int ret = px4_poll(&fds, 1, 2000);
+//
+//		if (ret != 1) {
+//			warnx("timed out");
+//			break;
+//		}
+//
+//		/* now go get it */
+//		sz = px4_read(fd, &report, sizeof(report));
+//
+//		if (sz != sizeof(report)) {
+//			warnx("read failed: got %d vs exp. %d", sz, sizeof(report));
+//			break;
+//		}
+//
+//		print_message(report);
+//	}
+//
+//	/* reset the sensor polling to the default rate */
+//	if (OK != px4_ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT)) {
+//		errx(1, "ERR: DEF RATE");
+//	}
+//
+//	errx(0, "PASS");
 }
 
 /**
@@ -896,21 +927,21 @@ test()
 void
 reset()
 {
-	int fd = px4_open(RANGE_FINDER0_DEVICE_PATH, O_RDONLY);
-
-	if (fd < 0) {
-		err(1, "failed ");
-	}
-
-	if (px4_ioctl(fd, SENSORIOCRESET, 0) < 0) {
-		err(1, "driver reset failed");
-	}
-
-	if (px4_ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT) < 0) {
-		err(1, "driver poll restart failed");
-	}
-
-	exit(0);
+//	int fd = px4_open(RANGE_FINDER0_DEVICE_PATH, O_RDONLY);
+//
+//	if (fd < 0) {
+//		err(1, "failed ");
+//	}
+//
+//	if (px4_ioctl(fd, SENSORIOCRESET, 0) < 0) {
+//		err(1, "driver reset failed");
+//	}
+//
+//	if (px4_ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT) < 0) {
+//		err(1, "driver poll restart failed");
+//	}
+//
+//	exit(0);
 }
 
 /**

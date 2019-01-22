@@ -2857,8 +2857,12 @@ MulticopterPositionControl::generate_attitude_setpoint()
 		float final_x = 0.0f;
 		if(oa_cmd.oa_x < -0.05f || oa_cmd.oa_x > 0.05f) //means reverse control enabled
 		{
-			if(!_control_mode.flag_control_position_enabled && !_vehicle_land_detected.landed){
-			final_x = -0.3f; //this value based on different platform
+			if(!_control_mode.flag_control_position_enabled && !_vehicle_land_detected.landed && (_manual.aux1 > 0)){
+			final_x = -0.2f; //this value based on different platform
+			}
+			else
+			{
+				final_x = _manual.x;
 			}
 		}
 		else

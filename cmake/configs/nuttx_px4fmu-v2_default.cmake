@@ -49,12 +49,12 @@ set(config_module_list
 	#drivers/flow_breakout
 
 	# distance sensors
-	drivers/distance_sensor/ll40ls
+	#drivers/distance_sensor/ll40ls
 	#drivers/distance_sensor/mb12xx
 	drivers/distance_sensor/sf0x
-	drivers/distance_sensor/sf1xx
-	drivers/distance_sensor/srf02
-	drivers/distance_sensor/teraranger
+	#drivers/distance_sensor/sf1xx
+	#drivers/distance_sensor/srf02
+	#drivers/distance_sensor/teraranger
 	drivers/distance_sensor/tfmini
 	#drivers/distance_sensor/ulanding
 	modules/sensors
@@ -130,6 +130,8 @@ set(config_module_list
 	modules/mc_att_control
 	modules/mc_pos_control
 	modules/vtol_att_control
+	#modules/mc_att_control_lqr
+	modules/mc_pos_control_rpt
 
 	#
 	# Logging
@@ -163,7 +165,7 @@ set(config_module_list
 
 	# Tutorial code from
 	# https://px4.io/dev/px4_simple_app
-	examples/px4_simple_app
+	#examples/px4_simple_app
 
 	# Tutorial code from
 	# https://px4.io/dev/debug_values

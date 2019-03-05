@@ -40,7 +40,10 @@ px4_add_module(
 	SRCS
 		mc_att_control_lqr_main.cpp
 	DEPENDS
-		platforms__common
+		controllib
+		flight_tasks
+		git_ecl
+		ecl_geo
 )
 	
 

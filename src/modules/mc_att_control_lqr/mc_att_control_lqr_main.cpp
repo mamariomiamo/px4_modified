@@ -63,6 +63,7 @@
 #include <drivers/drv_hrt.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #ifdef __PX4_NUTTX
 #include <nuttx/fs/ioctl.h>
@@ -95,7 +96,6 @@
 #include <px4_module_params.h>
 
 #include <systemlib/err.h>
-//#include <systemlib/perf_counter.h>
 #include <perf/perf_counter.h>
 //#include <systemlib/systemlib.h>
 //#include <systemlib/circuit_breaker.h>
@@ -110,6 +110,16 @@
 //#include "systemlib/param/param.h"
 #include "drivers/drv_pwm_output.h"
 #include <matrix/matrix/math.hpp>
+#include <lib/mixer/mixer.h>
+#include <mathlib/math/filter/LowPassFilter2p.hpp>
+#include <conversion/rotation.h>
+#include <mathlib/math/Limits.hpp>
+#include <mathlib/math/Functions.hpp>
+#include <systemlib/hysteresis/hysteresis.h>
+#include <float.h>
+#include <controllib/blocks.hpp>
+#include <mathlib/mathlib.h>
+#include <lib/FlightTasks/FlightTasks.hpp>
 
 /**
  * Multicopter attitude control app start / stop handling function
@@ -130,18 +140,18 @@ extern "C" __EXPORT int mc_att_control_lqr_main(int argc, char *argv[]);
 #define PWM_OUTPUT_BASE_DEVICE_PATH "/dev/pwm_output"
 #define PWM_OUTPUT0_DEVICE_PATH	"/dev/pwm_output0"
 
-class MulticopterAttitudeControl
+class MulticopterAttitudeControlLQR
 {
 public:
 	/**
 	 * Constructor
 	 */
-	MulticopterAttitudeControl();
+	MulticopterAttitudeControlLQR();
 
 	/**
 	 * Destructor, also kills the sensors task.
 	 */
-	~MulticopterAttitudeControl();
+	~MulticopterAttitudeControlLQR();
 
 	/**
 	 * Start the sensors task.
@@ -224,7 +234,7 @@ private:
 	float				_thrust_sp;		/**< thrust setpoint */
 	matrix::Vector3f		_att_control;	/**< attitude control vector */
 #ifdef QUAD
-	matrix::Matrix<4,4>     _u_omega2;           /**< Matrix to convert the u to omega2*/
+	matrix::Matrix<float, 4,4>     _u_omega2;           /**< Matrix to convert the u to omega2*/
 #endif
 #ifdef HEX
 	math::Matrix<6,4>	  _u_omega2;
@@ -233,10 +243,10 @@ private:
 	math::Matrix<8,4>     _u_omega2;
 #endif
 
-	math::Vector<4>     _u;              //* the desire control input */
-	math::Vector<3>		_angle_error;   /** to indicate the angle error */
+	matrix::Vector<float, 4>    _u;              //* the desire control input */
+	matrix::Vector3f		_angle_error;   /** to indicate the angle error */
 
-	math::Matrix<3, 3>  _I;				/**< identity matrix */
+	matrix::Matrix<float, 3, 3>  _I;				/**< identity matrix */
 
 	bool	_reset_yaw_sp;			/**< reset yaw setpoint flag */
 
@@ -280,17 +290,17 @@ private:
 	}		_params_handles;		/**< handles for interesting parameters */
 
 	struct {
-		math::Vector<3> att_p;					/**< P gain for angular error */
-		math::Vector<3> rate_p;				/**< P gain for angular rate error */
-		math::Vector<3> angle_i;				/**< I gain for angular rate error */
-		math::Vector<3> rate_d;				/**< D gain for angular rate error */
+		matrix::Vector3f att_p;					/**< P gain for angular error */
+		matrix::Vector3f rate_p;				/**< P gain for angular rate error */
+		matrix::Vector3f angle_i;				/**< I gain for angular rate error */
+		matrix::Vector3f rate_d;				/**< D gain for angular rate error */
 		float yaw_ff;						/**< yaw control feed-forward */
 		float yaw_rate_max;					/**< max yaw rate */
 
 		float man_roll_max;
 		float man_pitch_max;
 		float man_yaw_max;
-		math::Vector<3> acro_rate_max;		/**< max attitude rates in acro mode */
+		matrix::Vector3f acro_rate_max;		/**< max attitude rates in acro mode */
 		float fixed_time_shutter;
 		float check_current;
 		float check_on_off;
@@ -422,10 +432,10 @@ namespace mc_att_control_lqr
 #endif
 static const int ERROR = -1;
 
-MulticopterAttitudeControl	*g_control;
+MulticopterAttitudeControlLQR	*g_control;
 }
 
-float MulticopterAttitudeControl::constrain_ref(float x, float cons)
+float MulticopterAttitudeControlLQR::constrain_ref(float x, float cons)
 {
 	if(x>cons)
 		x = cons;
@@ -434,7 +444,7 @@ float MulticopterAttitudeControl::constrain_ref(float x, float cons)
 	return x;
 }
 
-float MulticopterAttitudeControl::limit_range(float x, float min, float max)
+float MulticopterAttitudeControlLQR::limit_range(float x, float min, float max)
 {
 	if(x>max)
 		x = max;
@@ -444,7 +454,7 @@ float MulticopterAttitudeControl::limit_range(float x, float min, float max)
 
 }
 
-float MulticopterAttitudeControl::limit_acc(float cur, float pre, float max_acc, float dt)
+float MulticopterAttitudeControlLQR::limit_acc(float cur, float pre, float max_acc, float dt)
 {
 	float error = cur-pre;
 	float error_dot = error/dt;
@@ -455,7 +465,7 @@ float MulticopterAttitudeControl::limit_acc(float cur, float pre, float max_acc,
 
 
 
-MulticopterAttitudeControl::MulticopterAttitudeControl() :
+MulticopterAttitudeControlLQR::MulticopterAttitudeControlLQR() :
 
 							_task_should_exit(false),
 							_control_task(-1),
@@ -558,7 +568,7 @@ MulticopterAttitudeControl::MulticopterAttitudeControl() :
 	parameters_update();
 }
 
-MulticopterAttitudeControl::~MulticopterAttitudeControl()
+MulticopterAttitudeControlLQR::~MulticopterAttitudeControlLQR()
 {
 	if (_control_task != -1) {
 		/* task wakes up every 100ms or so at the longest */
@@ -583,7 +593,7 @@ MulticopterAttitudeControl::~MulticopterAttitudeControl()
 }
 
 int
-MulticopterAttitudeControl::parameters_update()
+MulticopterAttitudeControlLQR::parameters_update()
 {
 	float v;
 
@@ -661,7 +671,7 @@ MulticopterAttitudeControl::parameters_update()
 	return OK;
 }
 
-void MulticopterAttitudeControl::update_u_omega2()
+void MulticopterAttitudeControlLQR::update_u_omega2()
 {
 
 	Kt1 = _params.Kt1 * air_density_ratio;
@@ -772,7 +782,7 @@ void MulticopterAttitudeControl::update_u_omega2()
 }
 
 void
-MulticopterAttitudeControl::parameter_update_poll()
+MulticopterAttitudeControlLQR::parameter_update_poll()
 {
 	bool updated;
 
@@ -787,7 +797,7 @@ MulticopterAttitudeControl::parameter_update_poll()
 }
 
 void
-MulticopterAttitudeControl::vehicle_control_mode_poll()
+MulticopterAttitudeControlLQR::vehicle_control_mode_poll()
 {
 	bool updated;
 
@@ -800,7 +810,7 @@ MulticopterAttitudeControl::vehicle_control_mode_poll()
 }
 
 void
-MulticopterAttitudeControl::vehicle_status_poll()
+MulticopterAttitudeControlLQR::vehicle_status_poll()
 {
 	bool updated;
 	orb_check(_v_status_sub,&updated);
@@ -811,7 +821,7 @@ MulticopterAttitudeControl::vehicle_status_poll()
 }
 
 void
-MulticopterAttitudeControl::vehicle_manual_poll()
+MulticopterAttitudeControlLQR::vehicle_manual_poll()
 {
 	bool updated;
 
@@ -824,7 +834,7 @@ MulticopterAttitudeControl::vehicle_manual_poll()
 }
 
 void
-MulticopterAttitudeControl::vehicle_attitude_setpoint_poll()
+MulticopterAttitudeControlLQR::vehicle_attitude_setpoint_poll()
 {
 	/* check if there is a new setpoint */
 	bool updated;
@@ -836,7 +846,7 @@ MulticopterAttitudeControl::vehicle_attitude_setpoint_poll()
 }
 
 void
-MulticopterAttitudeControl::vehicle_rates_setpoint_poll()
+MulticopterAttitudeControlLQR::vehicle_rates_setpoint_poll()
 {
 	/* check if there is a new setpoint */
 	bool updated;
@@ -848,7 +858,7 @@ MulticopterAttitudeControl::vehicle_rates_setpoint_poll()
 }
 
 void
-MulticopterAttitudeControl::arming_status_poll()
+MulticopterAttitudeControlLQR::arming_status_poll()
 {
 	/* check if there is a new setpoint */
 	bool updated;
@@ -860,7 +870,7 @@ MulticopterAttitudeControl::arming_status_poll()
 }
 
 void
-MulticopterAttitudeControl::home_position_poll()
+MulticopterAttitudeControlLQR::home_position_poll()
 {
 	bool updated;
 	orb_check(_home_sub,&updated);
@@ -872,7 +882,7 @@ MulticopterAttitudeControl::home_position_poll()
 }
 
 void
-MulticopterAttitudeControl::local_position_poll()
+MulticopterAttitudeControlLQR::local_position_poll()
 {
 	bool updated;
 	orb_check(_local_pos_sub,&updated);
@@ -883,7 +893,7 @@ MulticopterAttitudeControl::local_position_poll()
 }
 
 void
-MulticopterAttitudeControl::gps_poll()
+MulticopterAttitudeControlLQR::gps_poll()
 {
 	bool updated;
 	orb_check(_gps_sub,&updated);
@@ -895,7 +905,7 @@ MulticopterAttitudeControl::gps_poll()
 	}
 }
 
-void MulticopterAttitudeControl::battery_poll()
+void MulticopterAttitudeControlLQR::battery_poll()
 {
 	bool updated;
 	orb_check(_battery_sub,&updated);
@@ -903,7 +913,7 @@ void MulticopterAttitudeControl::battery_poll()
 		orb_copy(ORB_ID(battery_status),_battery_sub,&_battery);
 }
 
-void MulticopterAttitudeControl::sensor_combined_poll()
+void MulticopterAttitudeControlLQR::sensor_combined_poll()
 {
 	bool updated;
 	orb_check(_sensor_combined_sub,&updated);
@@ -912,7 +922,7 @@ void MulticopterAttitudeControl::sensor_combined_poll()
 
 }
 
-void MulticopterAttitudeControl::vehicle_land_deteced_poll()
+void MulticopterAttitudeControlLQR::vehicle_land_deteced_poll()
 {
 	bool updated;
 	orb_check(_vehicle_land_detected_sub, &updated);
@@ -922,7 +932,7 @@ void MulticopterAttitudeControl::vehicle_land_deteced_poll()
 }
 
 float
-MulticopterAttitudeControl::scale_control(float ctl, float end, float dz)
+MulticopterAttitudeControlLQR::scale_control(float ctl, float end, float dz)
 {
 	if (ctl > dz) {
 		return (ctl - dz) / (end - dz);
@@ -942,7 +952,7 @@ MulticopterAttitudeControl::scale_control(float ctl, float end, float dz)
  * Output: '_rates_sp' vector, '_thrust_sp', 'vehicle_attitude_setpoint' topic (for manual modes)
  */
 void
-MulticopterAttitudeControl::control_attitude(float dt)
+MulticopterAttitudeControlLQR::control_attitude(float dt)
 {
 	float yaw_sp_move_rate = 0.0f;
 	bool publish_att_sp = false;
@@ -981,20 +991,20 @@ MulticopterAttitudeControl::control_attitude(float dt)
 			yaw_sp_move_rate = _manual_control_sp.r * _params.man_yaw_max;
 			yaw_sp_move_rate = limit_acc(yaw_sp_move_rate,yaw_sp_rate_pre,1.0f,dt);
 			yaw_sp_rate_pre = yaw_sp_move_rate;
-			_v_att_sp.yaw_body = _wrap_pi(_v_att_sp.yaw_body + yaw_sp_move_rate * dt);
+			_v_att_sp.yaw_body = wrap_pi(_v_att_sp.yaw_body + yaw_sp_move_rate * dt);
 
 			/*limit the yaw offset error*/
 
 			float yaw_offs_max = _params.man_yaw_max;
-			math::Quaternion q_mea(_v_att.q[0], _v_att.q[1], _v_att.q[2], _v_att.q[3]);
-			math::Vector<3> euler_mea = q_mea.to_euler();
+			matrix::Quatf q_mea(_v_att.q[0], _v_att.q[1], _v_att.q[2], _v_att.q[3]);
+			matrix::Vector3f euler_mea =  matrix::Eulerf(q_mea);
 
-			float yaw_offs = _wrap_pi(_v_att_sp.yaw_body - euler_mea.data[2]);
+			float yaw_offs = wrap_pi(_v_att_sp.yaw_body - euler_mea(2));
 			if (yaw_offs < - yaw_offs_max) {
-				_v_att_sp.yaw_body = _wrap_pi(/*_v_att.yaw*/euler_mea.data[2]  - yaw_offs_max);
+				_v_att_sp.yaw_body = wrap_pi(/*_v_att.yaw*/euler_mea(2)  - yaw_offs_max);
 
 			} else if (yaw_offs > yaw_offs_max) {
-				_v_att_sp.yaw_body = _wrap_pi(/*_v_att.yaw*/ euler_mea.data[2] + yaw_offs_max);
+				_v_att_sp.yaw_body = wrap_pi(/*_v_att.yaw*/ euler_mea(2) + yaw_offs_max);
 			}
 			//			_v_att_sp.R_valid = false;
 			_v_att_sp.q_d_valid = false;
@@ -1003,13 +1013,13 @@ MulticopterAttitudeControl::control_attitude(float dt)
 
 		/* reset yaw setpint to current position if needed */
 		if (_reset_yaw_sp) {
-			math::Quaternion q_mea(_v_att.q[0], _v_att.q[1], _v_att.q[2], _v_att.q[3]);
-			math::Vector<3> euler_mea = q_mea.to_euler();
+			matrix::Quatf q_mea(_v_att.q[0], _v_att.q[1], _v_att.q[2], _v_att.q[3]);
+			matrix::Vector3f euler_mea = matrix::Eulerf(q_mea);
 
 			_reset_yaw_sp = false;
-			yaw_sp_pre = euler_mea.data[2]; // _v_att.yaw;
+			yaw_sp_pre = euler_mea(2); // _v_att.yaw;
 			yaw_sp_rate_pre = 0.0f;
-			_v_att_sp.yaw_body = euler_mea.data[2]; // _v_att.yaw;
+			_v_att_sp.yaw_body = euler_mea(2); // _v_att.yaw;
 			_v_att_sp.q_d_valid = false;
 			publish_att_sp = true;
 		}
@@ -1052,20 +1062,19 @@ MulticopterAttitudeControl::control_attitude(float dt)
 
 
 	/* construct attitude setpoint rotation matrix */
-	math::Matrix<3, 3> R_sp;
+	matrix::Dcmf R_sp;
 	/* rotation matrix in _att_sp is not valid, use euler angles instead */
-	R_sp.from_euler(_v_att_sp.roll_body, _v_att_sp.pitch_body, _v_att_sp.yaw_body);
-
+	R_sp = matrix::Eulerf(_v_att_sp.roll_body, _v_att_sp.pitch_body, _v_att_sp.yaw_body);
 	/* copy rotation matrix back to setpoint struct */
 	//	memcpy(&_v_att_sp.R_body[0][0], &R_sp.data[0][0], sizeof(_v_att_sp.R_body));
-	math::Quaternion q_sp;
-	q_sp.from_dcm(&R_sp.data[0][0]);
+	matrix::Quatf q_sp;
+	q_sp.from_dcm(R_sp);
 	//	math::Matrix<3, 3> R_sp = q_sp.to_dcm();
 
-	_v_att_sp.q_d[0] = q_sp.data[0];
-	_v_att_sp.q_d[1] = q_sp.data[1];
-	_v_att_sp.q_d[2] = q_sp.data[2];
-	_v_att_sp.q_d[3] = q_sp.data[3];
+	_v_att_sp.q_d[0] = q_sp(0);
+	_v_att_sp.q_d[1] = q_sp(1);
+	_v_att_sp.q_d[2] = q_sp(2);
+	_v_att_sp.q_d[3] = q_sp(3);
 	_v_att_sp.q_d_valid = true;
 
 	//	math::Quaternion q_sp(_v_att_sp.q_d[0], _v_att_sp.q_d[1], _v_att_sp.q_d[2], _v_att_sp.q_d[3]);
@@ -1093,10 +1102,10 @@ MulticopterAttitudeControl::control_attitude(float dt)
 	}
 
 	/* rotation matrix for current state */
-	math::Matrix<3, 3> R;
+	matrix::Dcmf R;
 
 	//	R.set(_v_att.R);
-	math::Quaternion q_tmp(_v_att.q[0], _v_att.q[1], _v_att.q[2], _v_att.q[3]);
+	matrix::Quatf q_tmp(_v_att.q[0], _v_att.q[1], _v_att.q[2], _v_att.q[3]);
 	R = q_tmp.to_dcm();
 	//	math::Matrix<3, 3> Rb = q_att.to_dcm();
 	//	math::Matrix<3, 3> R = Rb.transposed();
@@ -1104,12 +1113,12 @@ MulticopterAttitudeControl::control_attitude(float dt)
 	/* all input data is ready, run controller itself */
 
 	/* try to move thrust vector shortest way, because yaw response is slower than roll/pitch */
-	math::Vector<3> R_z(R(0, 2), R(1, 2), R(2, 2));
-	math::Vector<3> R_sp_z(R_sp(0, 2), R_sp(1, 2), R_sp(2, 2));
+	matrix::Vector3f R_z(R(0, 2), R(1, 2), R(2, 2));
+	matrix::Vector3f R_sp_z(R_sp(0, 2), R_sp(1, 2), R_sp(2, 2));
 
 	/* axis and sin(angle) of desired rotation (indexes: 0=pitch, 1=roll, 2=yaw).
 	 * This is for roll/pitch only (tilt), e_R(2) is 0 */
-	math::Vector<3> e_R = R.transposed() * (R_z % R_sp_z);
+	matrix::Vector3f e_R = R.transpose() * (R_z % R_sp_z);
 
 	/* calculate angle error */
 	float e_R_z_sin = e_R.length();
@@ -1119,12 +1128,12 @@ MulticopterAttitudeControl::control_attitude(float dt)
 	float yaw_w = R_sp(2, 2) * R_sp(2, 2);
 
 	/* calculate rotation matrix after roll/pitch only rotation */
-	math::Matrix<3, 3> R_rp;
+	matrix::Dcmf R_rp;
 
 	if (e_R_z_sin > 0.0f) {
 		/* get axis-angle representation */
 		float e_R_z_angle = atan2f(e_R_z_sin, e_R_z_cos);
-		math::Vector<3> e_R_z_axis = e_R / e_R_z_sin;
+		matrix::Vector3f e_R_z_axis = e_R / e_R_z_sin;
 
 		e_R = e_R_z_axis * e_R_z_angle;
 
@@ -1141,7 +1150,7 @@ MulticopterAttitudeControl::control_attitude(float dt)
 
 		}
 		/* cross product matrix for e_R_axis */
-		math::Matrix<3, 3> e_R_cp;
+		matrix::Dcmf e_R_cp;
 		e_R_cp.zero();
 		e_R_cp(0, 1) = -e_R_z_axis(2);
 		e_R_cp(0, 2) = e_R_z_axis(1);
@@ -1159,16 +1168,16 @@ MulticopterAttitudeControl::control_attitude(float dt)
 	}
 
 	/* R_rp and R_sp has the same Z axis, calculate yaw error */
-	math::Vector<3> R_sp_x(R_sp(0, 0), R_sp(1, 0), R_sp(2, 0));
-	math::Vector<3> R_rp_x(R_rp(0, 0), R_rp(1, 0), R_rp(2, 0));
+	matrix::Vector3f R_sp_x(R_sp(0, 0), R_sp(1, 0), R_sp(2, 0));
+	matrix::Vector3f R_rp_x(R_rp(0, 0), R_rp(1, 0), R_rp(2, 0));
 	e_R(2) = atan2f((R_rp_x % R_sp_x) * R_sp_z, R_rp_x * R_sp_x) * yaw_w;
 
 	if (e_R_z_cos < 0.0f) {
 		/* for large thrust vector rotations use another rotation method:
 		 * calculate angle and axis for R -> R_sp rotation directly */
-		math::Quaternion q;
-		q.from_dcm(R.transposed() * R_sp);
-		math::Vector<3> e_R_d = q.imag();
+		matrix::Quatf q;
+		q.from_dcm(R.transpose() * R_sp);
+		matrix::Vector3f e_R_d = q.imag();
 		e_R_d.normalize();
 		e_R_d *= 2.0f * atan2f(e_R_d.length(), q(0));
 
@@ -1179,10 +1188,10 @@ MulticopterAttitudeControl::control_attitude(float dt)
 
 	_angle_error(0) = e_R(0);
 	_angle_error(1) = e_R(1);
-	_angle_error(2) = _wrap_pi(e_R(2));
+	_angle_error(2) = wrap_pi(e_R(2));
 }
 
-void MulticopterAttitudeControl::pre_arm_check()
+void MulticopterAttitudeControlLQR::pre_arm_check()
 {
 	_actuators.control[0] = -1.0f;
 	_actuators.control[1] = -1.0f;
@@ -1307,11 +1316,11 @@ void MulticopterAttitudeControl::pre_arm_check()
 
 
 #ifdef QUAD
-void MulticopterAttitudeControl::calculate_delta()
+void MulticopterAttitudeControlLQR::calculate_delta()
 {
 
 	/* u = [torque_x, torque_y, torque_z, thrust] */
-	math::Vector <4> _omega_square;
+	matrix::Vector<float, 4> _omega_square;
 	if(_thrust_sp>0.1f){
 		_u(0) = PX4_ISFINITE(_att_control(0))?_att_control(0)*Ix:0.0f;
 		_u(1) = PX4_ISFINITE(_att_control(1))?_att_control(1)*Iy:0.0f;
@@ -1482,7 +1491,7 @@ void MulticopterAttitudeControl::calculate_delta()
 
 
 
-bool MulticopterAttitudeControl::check_motor()
+bool MulticopterAttitudeControlLQR::check_motor()
 {
 	/*		ave_current = _params.check_current;
 		_motor_status.motor_fault = false;
@@ -1533,7 +1542,7 @@ bool MulticopterAttitudeControl::check_motor()
  * Output: '_att_control' vector
  */
 void
-MulticopterAttitudeControl::control_attitude_rates(float dt)
+MulticopterAttitudeControlLQR::control_attitude_rates(float dt)
 {
 	/* reset integral if disarmed */
 	if (!_armed.armed) {
@@ -1541,13 +1550,13 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 	}
 
 	/* current body angular rates */
-	math::Vector<3> rates;
+	matrix::Vector3f rates;
 	rates(0) = _v_att.rollspeed;
 	rates(1) = _v_att.pitchspeed;
 	rates(2) = _v_att.yawspeed;
 
 	/* angular rates error */
-	math::Vector<3> rates_err = _rates_sp - rates;
+	matrix::Vector3f rates_err = _rates_sp - rates;
 
 	_rates_d = (rates - _rates_prev)/dt;
 
@@ -1584,18 +1593,18 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 
 
 void
-MulticopterAttitudeControl::task_main_trampoline(int argc, char *argv[])
+MulticopterAttitudeControlLQR::task_main_trampoline(int argc, char *argv[])
 {
 	mc_att_control_lqr::g_control->task_main();
 }
 
-void MulticopterAttitudeControl::task_main_pseudo()
+void MulticopterAttitudeControlLQR::task_main_pseudo()
 {
 	PX4_WARN("task_main_pseudo started.\n");
 }
 
 void
-MulticopterAttitudeControl::task_main()
+MulticopterAttitudeControlLQR::task_main()
 {
 	PX4_WARN("started");
 	fflush(stdout);
@@ -1670,7 +1679,7 @@ MulticopterAttitudeControl::task_main()
 	memset(&_actuators,0,sizeof(_actuators));
 	memset(&_actuators1,0,sizeof(_actuators1));
 
-	math::Matrix<4,4> omega_square_to_u;
+	matrix::Matrix<float, 4,4> omega_square_to_u;
 
 	printf("parameters_update.\n");
 	/* initialize parameters cache */
@@ -1827,7 +1836,7 @@ MulticopterAttitudeControl::task_main()
 				/* attitude controller disabled, poll rates setpoint topic */
 				if (_v_control_mode.flag_control_manual_enabled) {
 					/* manual rates control - ACRO mode */
-					_rates_sp = math::Vector<3>(_manual_control_sp.y, -_manual_control_sp.x, _manual_control_sp.r).emult(_params.acro_rate_max);
+					_rates_sp = matrix::Vector3f(_manual_control_sp.y, -_manual_control_sp.x, _manual_control_sp.r).emult(_params.acro_rate_max);
 					_thrust_sp = _manual_control_sp.z;
 
 					/* reset yaw setpoint after ACRO */
@@ -1996,7 +2005,7 @@ MulticopterAttitudeControl::task_main()
 }
 
 int
-MulticopterAttitudeControl::start()
+MulticopterAttitudeControlLQR::start()
 {
 	ASSERT(_control_task == -1);
 
@@ -2005,7 +2014,7 @@ MulticopterAttitudeControl::start()
 			SCHED_DEFAULT,
 			SCHED_PRIORITY_MAX - 5,
 			4000, //2000,
-			(px4_main_t)&MulticopterAttitudeControl::task_main_trampoline,
+			(px4_main_t)&MulticopterAttitudeControlLQR::task_main_trampoline,
 			nullptr);
 
 	if (_control_task < 0) {
@@ -2026,7 +2035,7 @@ int mc_att_control_lqr_main(int argc, char *argv[])
 		if (mc_att_control_lqr::g_control != nullptr)
 			errx(1, "already running");
 
-		mc_att_control_lqr::g_control = new MulticopterAttitudeControl;
+		mc_att_control_lqr::g_control = new MulticopterAttitudeControlLQR;
 
 		if (mc_att_control_lqr::g_control == nullptr)
 			errx(1, "alloc failed");

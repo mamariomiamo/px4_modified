@@ -18,7 +18,7 @@ set(config_module_list
 	#drivers/imu/bmi160
 	#drivers/barometer/bmp280
 	#drivers/bst
-	drivers/camera_trigger
+	#drivers/camera_trigger
 	#drivers/frsky_telemetry
 	drivers/gps
 	#drivers/hott
@@ -130,7 +130,7 @@ set(config_module_list
 	modules/mc_att_control
 	modules/mc_pos_control
 	modules/vtol_att_control
-	#modules/mc_att_control_lqr
+	modules/mc_att_control_lqr
 	modules/mc_pos_control_rpt
 
 	#

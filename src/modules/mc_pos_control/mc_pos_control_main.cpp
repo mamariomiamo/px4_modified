@@ -3301,7 +3301,7 @@ MulticopterPositionControl::task_main()
 				}
 			}
 		}
-//		printf("I get it, obstacle_avoidance cmd x: %.3f, y:%.3f \n", (double)oa_cmd.oa_x, (double)oa_cmd.oa_y);
+		//printf("I get it, obstacle_avoidance cmd x: %.3f, y:%.3f \n", (double)oa_cmd.oa_x, (double)oa_cmd.oa_y);
 
 	}
 

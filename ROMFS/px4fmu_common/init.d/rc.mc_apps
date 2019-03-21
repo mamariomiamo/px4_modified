@@ -37,10 +37,26 @@ then
 	ekf2 start
 fi
 #---------------------------------------
+	mc_att_control_lqr start
+	mc_pos_control_rpt start
+#if param compare SYS_MC_CTL_GROUP 1
+#then
+#	mc_att_control start
+#	mc_pos_control start
+#fi
 
-mc_att_control start
+#if param compare SYS_MC_CTL_GROUP 2
+#then 
+#	mc_att_control_lqr start
+#	mc_pos_control_rpt start
+#fi
 
-mc_pos_control start
+#if param compare SYS_MC_CTL_GROUP 3
+#then 
+#	mc_att_control_nl start
+#	mc_pos_control_nl start
+#fi
+
 obstacle_avoidance start -e -r 150 -g 1000 -t 2.0
 
 #

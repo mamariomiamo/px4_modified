@@ -528,26 +528,26 @@ MulticopterAttitudeControlLQR::MulticopterAttitudeControlLQR() :
 
 	_I.identity();
 
-	_params_handles.roll_p			= 	param_find("MC_ROLL_P");
-	_params_handles.roll_rate_p		= 	param_find("MC_ROLLRATE_P");
-	_params_handles.roll_i			= 	param_find("MC_ROLL_I");
-	_params_handles.roll_rate_d		= 	param_find("MC_ROLLRATE_D");
-	_params_handles.pitch_p			= 	param_find("MC_PITCH_P");
-	_params_handles.pitch_rate_p	= 	param_find("MC_PITCHRATE_P");
-	_params_handles.pitch_i			= 	param_find("MC_PITCH_I");
-	_params_handles.pitch_rate_d	= 	param_find("MC_PITCHRATE_D");
-	_params_handles.yaw_p			=	param_find("MC_YAW_P");
-	_params_handles.yaw_rate_p		= 	param_find("MC_YAWRATE_P");
-	_params_handles.yaw_i			= 	param_find("MC_YAW_I");
-	_params_handles.yaw_rate_d		= 	param_find("MC_YAWRATE_D");
-	_params_handles.yaw_ff			= 	param_find("MC_YAW_FF");
-	_params_handles.yaw_rate_max	= 	param_find("MC_YAWRATE_MAX");
-	_params_handles.man_roll_max	= 	param_find("MC_MAN_R_MAX");
-	_params_handles.man_pitch_max	= 	param_find("MC_MAN_P_MAX");
-	_params_handles.man_yaw_max		= 	param_find("MC_MAN_Y_MAX");
-	_params_handles.acro_roll_max	= 	param_find("MC_ACRO_R_MAX");
-	_params_handles.acro_pitch_max	= 	param_find("MC_ACRO_P_MAX");
-	_params_handles.acro_yaw_max	= 	param_find("MC_ACRO_Y_MAX");
+	_params_handles.roll_p			= 	param_find("MC_ROLL_P_L");
+	_params_handles.roll_rate_p		= 	param_find("MC_ROLLRATE_P_L");
+	_params_handles.roll_i			= 	param_find("MC_ROLL_I_L");
+	_params_handles.roll_rate_d		= 	param_find("MC_ROLLRATE_D_L");
+	_params_handles.pitch_p			= 	param_find("MC_PITCH_P_L");
+	_params_handles.pitch_rate_p	= 	param_find("MC_PITCHRATE_P_L");
+	_params_handles.pitch_i			= 	param_find("MC_PITCH_I_L");
+	_params_handles.pitch_rate_d	= 	param_find("MC_PITCHRATE_D_L");
+	_params_handles.yaw_p			=	param_find("MC_YAW_P_L");
+	_params_handles.yaw_rate_p		= 	param_find("MC_YAWRATE_P_L");
+	_params_handles.yaw_i			= 	param_find("MC_YAW_I_L");
+	_params_handles.yaw_rate_d		= 	param_find("MC_YAWRATE_D_L");
+	_params_handles.yaw_ff			= 	param_find("MC_YAW_FF_L");
+	_params_handles.yaw_rate_max	= 	param_find("MC_YAWRATE_MAX_L");
+	_params_handles.man_roll_max	= 	param_find("MC_MAN_R_MAX_L");
+	_params_handles.man_pitch_max	= 	param_find("MC_MAN_P_MAX_L");
+	_params_handles.man_yaw_max		= 	param_find("MC_MAN_Y_MAX_L");
+	_params_handles.acro_roll_max	= 	param_find("MC_ACRO_R_MAX_L");
+	_params_handles.acro_pitch_max	= 	param_find("MC_ACRO_P_MAX_L");
+	_params_handles.acro_yaw_max	= 	param_find("MC_ACRO_Y_MAX_L");
 	_params_handles.fixed_time_shutter = param_find("FIX_TIME_SHUT");
 	_params_handles.check_current = param_find("CHECK_CURRENT");
 	_params_handles.check_on_off = param_find("CHECK_ON_OFF");
@@ -1030,6 +1030,7 @@ MulticopterAttitudeControlLQR::control_attitude(float dt)
 			_v_att_sp.pitch_body = -_manual_control_sp.x * _params.man_pitch_max;
 			_v_att_sp.q_d_valid = false;
 			publish_att_sp = true;
+
 		}
 
 	} else {
@@ -1047,7 +1048,7 @@ MulticopterAttitudeControlLQR::control_attitude(float dt)
 
 
 	float pitch_sp_cur = limit_acc(_v_att_sp.pitch_body,pitch_sp_pre,2.0f,dt);
-	// _rates_sp(0) = (pitch_sp_cur - pitch_sp_pre)/dt;
+	 //_rates_sp(0) = (pitch_sp_cur - pitch_sp_pre)/dt;
 	_rates_sp(0) = 0.0f;
 	pitch_sp_pre = pitch_sp_cur;
 	_v_att_sp.pitch_body = pitch_sp_cur;
@@ -1057,7 +1058,10 @@ MulticopterAttitudeControlLQR::control_attitude(float dt)
 	_rates_sp(1) = 0.0f;
 	roll_sp_pre = roll_sp_cur;
 	_v_att_sp.roll_body = roll_sp_cur;
-
+//	static unsigned int loop1 = 0;
+//	if (loop1++ % 400 == 0) {
+//		printf("test: %.3f, %.3f\n", (double)_v_att_sp.roll_body, (double)_v_att_sp.pitch_body);
+//	}
 	_rates_sp(2) = _params.yaw_ff * yaw_sp_rate_pre;
 
 
@@ -1066,7 +1070,13 @@ MulticopterAttitudeControlLQR::control_attitude(float dt)
 	/* rotation matrix in _att_sp is not valid, use euler angles instead */
 	R_sp = matrix::Eulerf(_v_att_sp.roll_body, _v_att_sp.pitch_body, _v_att_sp.yaw_body);
 	/* copy rotation matrix back to setpoint struct */
-	//	memcpy(&_v_att_sp.R_body[0][0], &R_sp.data[0][0], sizeof(_v_att_sp.R_body));
+	//memcpy(&_v_att_sp.R_body[0][0], &R_sp.data[0][0], sizeof(_v_att_sp.R_body));
+//	for(int i=0; i<3; i++)
+//	{
+//		R_sp(0,i) = _v_att_sp.R_body0[i];
+//		R_sp(1,i) = _v_att_sp.R_body1[i];
+//		R_sp(2,i) = _v_att_sp.R_body2[i];
+//	}
 	matrix::Quatf q_sp;
 	q_sp.from_dcm(R_sp);
 	//	math::Matrix<3, 3> R_sp = q_sp.to_dcm();
@@ -1097,8 +1107,8 @@ MulticopterAttitudeControlLQR::control_attitude(float dt)
 	//	math::Vector<3> euler_mea1 = q_mea1.to_euler();
 	if (loop++ % 400 == 0) {
 		//		printf("_v_att: %.3f, %.3f, %.3f\n", (double)euler_mea1(0), (double)euler_mea1(1), (double)euler_mea1(2));
-		//		printf("_v_att_sp: %.3f, %.3f, %.3f, %.3f\n",
-		//				(double)_v_att_sp.roll_body, (double)_v_att_sp.pitch_body, (double)_v_att_sp.yaw_body, (double)_v_att_sp.thrust);
+//				printf("_v_att_sp: %.3f, %.3f, %.3f, %.3f\n",
+//						(double)_v_att_sp.roll_body, (double)_v_att_sp.pitch_body, (double)_v_att_sp.yaw_body, (double)_v_att_sp.thrust);
 	}
 
 	/* rotation matrix for current state */
@@ -1129,7 +1139,20 @@ MulticopterAttitudeControlLQR::control_attitude(float dt)
 
 	/* calculate rotation matrix after roll/pitch only rotation */
 	matrix::Dcmf R_rp;
+	if (loop % 400 == 0) {
+//		printf("att_sp: %.3f, %.3f, %.3f\n", (double)_v_att_sp.q_d[0], (double)_v_att_sp.q_d[1], (double)_v_att_sp.q_d[2],(double)_v_att_sp.q_d[3]);
+//					printf("Rsp0: %.3f, %.3f, %.3f\n", (double)R_sp(0,0), (double)R_sp(0,1), (double)R_sp(0,2));
+//					printf("Rsp1: %.3f, %.3f, %.3f\n", (double)R_sp(1,0), (double)R_sp(1,1), (double)R_sp(1,2));
+//					printf("Rsp2: %.3f, %.3f, %.3f\n", (double)R_sp(2,0), (double)R_sp(2,1), (double)R_sp(2,2));
+//					printf("att_sp: %.3f, %.3f, %.3f\n", (double)_v_att_sp.roll_body, (double)_v_att_sp.pitch_body, (double)_v_att_sp.yaw_body);
+		/*			printf("e_R: %.3f, %.3f, %.3f\n", (double)e_R(0), (double)e_R(1), (double)e_R(2));
+		printf("e_R_z_sin: %.3f, e_R_z_cos: %.3f\n", (double)e_R_z_sin, (double)e_R_z_cos);
+		printf("e_R_z_axis: %.3f, %.3f, %.3f\n", (double)e_R_z_axis(0), (double)e_R_z_axis(1), (double)e_R_z_axis(2));
+		printf("e_R_z_angle: %.3f\n", (double)e_R_z_angle);
+		printf("R_z: %.3f, %.3f, %.3f\n", (double)R_z(0), (double)R_z(1), (double)R_z(2));
+		printf("R_sp_z: %.3f, %.3f, %.3f\n", (double)R_sp_z(0), (double)R_sp_z(1), (double)R_sp_z(2));*/
 
+	}
 	if (e_R_z_sin > 0.0f) {
 		/* get axis-angle representation */
 		float e_R_z_angle = atan2f(e_R_z_sin, e_R_z_cos);
@@ -1138,9 +1161,9 @@ MulticopterAttitudeControlLQR::control_attitude(float dt)
 		e_R = e_R_z_axis * e_R_z_angle;
 
 		if (loop % 400 == 0) {
-			//			printf("R0: %.3f, %.3f, %.3f\n", (double)R(0,0), (double)R(0,1), (double)R(0,2));
-			//			printf("R1: %.3f, %.3f, %.3f\n", (double)R(1,0), (double)R(1,1), (double)R(1,2));
-			//			printf("R2: %.3f, %.3f, %.3f\n", (double)R(2,0), (double)R(2,1), (double)R(2,2));
+//						printf("R0: %.3f, %.3f, %.3f\n", (double)R(0,0), (double)R(0,1), (double)R(0,2));
+//						printf("R1: %.3f, %.3f, %.3f\n", (double)R(1,0), (double)R(1,1), (double)R(1,2));
+//						printf("R2: %.3f, %.3f, %.3f\n", (double)R(2,0), (double)R(2,1), (double)R(2,2));
 			/*			printf("e_R: %.3f, %.3f, %.3f\n", (double)e_R(0), (double)e_R(1), (double)e_R(2));
 			printf("e_R_z_sin: %.3f, e_R_z_cos: %.3f\n", (double)e_R_z_sin, (double)e_R_z_cos);
 			printf("e_R_z_axis: %.3f, %.3f, %.3f\n", (double)e_R_z_axis(0), (double)e_R_z_axis(1), (double)e_R_z_axis(2));
@@ -1189,6 +1212,9 @@ MulticopterAttitudeControlLQR::control_attitude(float dt)
 	_angle_error(0) = e_R(0);
 	_angle_error(1) = e_R(1);
 	_angle_error(2) = wrap_pi(e_R(2));
+//	if (loop % 400 == 0) {
+//		printf("angle_error: %.3f, %.3f, %.3f\n", (double)_angle_error(0),(double)_angle_error(1),(double)_angle_error(2));
+//	}
 }
 
 void MulticopterAttitudeControlLQR::pre_arm_check()
@@ -1365,8 +1391,9 @@ void MulticopterAttitudeControlLQR::calculate_delta()
 		//	  printf("att_control: %.3f, %.3f, %.3f, %.3f\n", (double)_att_control(0), (double)_att_control(1), (double)_att_control(2), (double)_att_control(3));
 		//	  printf("omega2: %.3f, %.3f, %.3f, %.3f\n", (double)_omega_square(0), (double)_omega_square(1), (double)_omega_square(2), (double)_omega_square(3));
 		//printf("u: %.3f, %.3f, %.3f, %.3f\n", (double)_u(0), (double)_u(1), (double)_u(2), (double)_u(3));
-			  printf("actuators: %.3f, %.3f, %.3f, %.3f\n",
-					  (double)_actuators.control[0], (double)_actuators.control[1], (double)_actuators.control[2], (double)_actuators.control[3]);
+			  printf("actuators: %.3f, %.3f, %.3f, %.3f, _att_control, %.3f, %.3f, %.3f\n",
+					  (double)_actuators.control[0], (double)_actuators.control[1], (double)_actuators.control[2], (double)_actuators.control[3],
+					  (double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
 	}
 
 }
@@ -1581,9 +1608,12 @@ MulticopterAttitudeControlLQR::control_attitude_rates(float dt)
 
 	static unsigned int loop1 = 0;
 	if (loop1++ % 400 == 0) {
-		//		printf("[control_attitude_rates]: %.3f, %.3f, %.3f, %.3f, %.3f, %.3f\n",
-		//				(double)rates_err(0), (double)rates_err(1), (double)rates_err(2),
-		//				(double)_rates_d(0), (double)_rates_d(1), (double)_rates_d(2));
+//				printf("[control_attitude_rates]: %.3f, %.3f, %.3f, %.3f, %.3f, %.3f\n",
+//						(double)rates_err(0), (double)rates_err(1), (double)rates_err(2),
+//						(double)_rates_d(0), (double)_rates_d(1), (double)_rates_d(2));
+//				printf("[control_attitude_rates]: %.3f, %.3f, %.3f, %.3f, %.3f, %.3f\n",
+//										(double)_rates_sp(0), (double)_rates_sp(1), (double)_rates_sp(2),
+//										(double)rates(0), (double)rates(1), (double)rates(2));
 		//
 		//		printf("[control_attitude_rates]: %.3f, %.3f, %.3f, %.3f, %.3f, %.3f\n",
 		//				(double)_att_control(0), (double)_att_control(1), (double)_att_control(2),
@@ -1701,7 +1731,7 @@ MulticopterAttitudeControlLQR::task_main()
 	//	unsigned group;
 	unsigned long channels;
 	unsigned single_ch = 0;
-	int pwm_value;
+	//int pwm_value;
 	//
 	//	int myoptind = 1;
 	const char *myoptarg = nullptr;
@@ -1887,7 +1917,7 @@ MulticopterAttitudeControlLQR::task_main()
 
 						calculate_delta();
 						//gen pwm to motors
-						for (unsigned i = 0; i < 4; i++) {
+/*						for (unsigned i = 0; i < 4; i++) {
 							if (set_mask & 1 << i) {
 								pwm_value = (int)((_actuators.control[i] + 1.0f)  * 500.0f + 1000.0f);
 								//convert from -1 - 1 to 0-2, and add 1000, and times 500 (because range from pwm output is 1000-2000, and control output is 0-2)
@@ -1898,7 +1928,7 @@ MulticopterAttitudeControlLQR::task_main()
 									//return 1;
 								}
 							}
-						}
+						}*/
 						//printf("actuators: %.3f, %.3f, %.3f, %.3f\n",
 						//					  (double)_actuators.control[0], (double)_actuators.control[1], (double)_actuators.control[2], (double)_actuators.control[3]);
 
@@ -1933,16 +1963,16 @@ MulticopterAttitudeControlLQR::task_main()
 					_actuators1.control[3] = 0.0f;
 
 					//gen pwm to motors
-					for (unsigned i = 0; i < 4; i++) {
-						if (set_mask & 1 << i) {
-							ret = px4_ioctl(fd, PWM_SERVO_SET(i), 900);
-
-							if (ret != OK) {
-								PX4_ERR("PWM_SERVO_SET(%d)", i);
-								//return 1;
-							}
-						}
-					}
+//					for (unsigned i = 0; i < 4; i++) {
+//						if (set_mask & 1 << i) {
+//							ret = px4_ioctl(fd, PWM_SERVO_SET(i), 900);
+//
+//							if (ret != OK) {
+//								PX4_ERR("PWM_SERVO_SET(%d)", i);
+//								//return 1;
+//							}
+//						}
+//					}
 
 				}
 

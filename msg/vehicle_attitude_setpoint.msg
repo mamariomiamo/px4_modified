@@ -10,7 +10,10 @@ float32 yaw_sp_move_rate		# rad/s (commanded by user)
 # For quaternion-based attitude control
 float32[4] q_d					# Desired quaternion for quaternion control
 bool q_d_valid					# Set to true if quaternion vector is valid
-
+float32[3] R_body0
+float32[3] R_body1
+float32[3] R_body2
+bool R_valid
 float32 thrust					# Thrust in Newton the power system should generate
 
 bool roll_reset_integral			# Reset roll integral part (navigation logic change)

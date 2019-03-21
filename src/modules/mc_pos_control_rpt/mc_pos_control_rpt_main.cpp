@@ -976,11 +976,11 @@ MulticopterPositionControlRPT::task_main()
 		was_armed = _control_mode.flag_armed;
 
 		update_ref();
-
 		if (_control_mode.flag_control_altitude_enabled ||
 		    _control_mode.flag_control_position_enabled ||
 		    _control_mode.flag_control_climb_rate_enabled ||
-		    _control_mode.flag_control_velocity_enabled) {
+		    _control_mode.flag_control_velocity_enabled ||
+			_control_mode.flag_control_manual_enabled) {
 
 			_pos(0) = _local_pos.x;
 			_pos(1) = _local_pos.y;
@@ -1062,7 +1062,13 @@ MulticopterPositionControlRPT::task_main()
 						_att_sp.q_d_valid = true;
 
 //						memcpy(&_att_sp.R_body[0][0], R.data, sizeof(_att_sp.R_body));
-//						_att_sp.R_valid = true;
+						for(int i=0; i<3; i++)
+						{
+							_att_sp.R_body0[i] = R(0,i);
+							_att_sp.R_body1[i] = R(1,i);
+							_att_sp.R_body2[i] = R(2,i);
+						}
+						_att_sp.R_valid = true;
 
 						matrix::Quatf quat_att(_att.q[0], _att.q[1], _att.q[2], _att.q[3]);
 						matrix::Vector3f euler_att = matrix::Eulerf(quat_att);
@@ -1101,7 +1107,6 @@ MulticopterPositionControlRPT::task_main()
 			if(_pos_sp(2) < _params.max_z_height)
 				_pos_sp(2) = _params.max_z_height;
 
-
 			/* fill local position setpoint */
 			_local_pos_sp.timestamp = hrt_absolute_time();
 			_local_pos_sp.x = _pos_sp(0);
@@ -1119,7 +1124,6 @@ MulticopterPositionControlRPT::task_main()
 				_local_pos_sp_pub = orb_advertise(ORB_ID(vehicle_local_position_setpoint), &_local_pos_sp);
 			}
 
-
 			if (!_control_mode.flag_control_manual_enabled && _pos_sp_triplet.current.valid &&
 					_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_IDLE) {
 				/* idle state, don't run controller and set zero thrust */
@@ -1133,7 +1137,13 @@ MulticopterPositionControlRPT::task_main()
 				_att_sp.q_d_valid = true;
 
 //				memcpy(&_att_sp.R_body[0][0], R.data, sizeof(_att_sp.R_body));
-//				_att_sp.R_valid = true;
+				for(int i=0; i<3; i++)
+				{
+					_att_sp.R_body0[i] = R(0,i);
+					_att_sp.R_body1[i] = R(1,i);
+					_att_sp.R_body2[i] = R(2,i);
+				}
+				_att_sp.R_valid = true;
 
 				matrix::Quatf quat_att(_att.q[0], _att.q[1], _att.q[2], _att.q[3]);
 				matrix::Vector3f euler_att = matrix::Eulerf(quat_att);
@@ -1158,9 +1168,12 @@ MulticopterPositionControlRPT::task_main()
 
 			} else {
 
-
 				/* run position & altitude controllers, calculate velocity setpoint */
 				matrix::Vector3f pos_err = _pos_sp - _pos;
+//				static unsigned int loop1 = 0;
+//				if (loop1++ % 20 == 0) {
+//				printf("pos_err: %.3f, %.3f, %.3f\n", (double)pos_err(0),(double)pos_err(1),(double)pos_err(2));
+//				}
 
 				if (!_control_mode.flag_control_altitude_enabled) {
 					_reset_alt_sp = true;
@@ -1223,6 +1236,10 @@ MulticopterPositionControlRPT::task_main()
 
 					/* velocity error */
 					matrix::Vector3f vel_err = _vel_sp - _vel;
+//					static unsigned int loop1 = 0;
+//					if (loop1++ % 20 == 0) {
+//					printf("vel_err is %.3f, %.3f, %.3f\n", (double)vel_err(0),(double)vel_err(1),(double)vel_err(2));
+//					}
 
 					float acc_dot_temp;
 					acc_dot_temp = (_acc_sp(0) - _acc_sp_govened(0))/dt;
@@ -1414,8 +1431,15 @@ MulticopterPositionControlRPT::task_main()
 						_att_sp.q_d[3] = quat_sp(3);
 						_att_sp.q_d_valid = true;
 
-//						memcpy(&_att_sp.R_body[0][0], R.data, sizeof(_att_sp.R_body));
-//						_att_sp.R_valid = true;
+						//memcpy(&_att_sp.R_body[0][0], R.data, sizeof(_att_sp.R_body));
+						for(int i=0; i<3; i++)
+						{
+							_att_sp.R_body0[i] = R(0,i);
+							_att_sp.R_body1[i] = R(1,i);
+							_att_sp.R_body2[i] = R(2,i);
+						}
+
+						_att_sp.R_valid = true;
 
 						/* calculate euler angles, for logging only, must not be used for control */
 						matrix::Vector3f euler = matrix::Eulerf(R);
@@ -1439,8 +1463,14 @@ MulticopterPositionControlRPT::task_main()
 						_att_sp.q_d[3] = q_att_sp(3);
 						_att_sp.q_d_valid = true;
 
-//						memcpy(&_att_sp.R_body[0][0], R.data, sizeof(_att_sp.R_body));
-//						_att_sp.R_valid = true;
+						//memcpy(&_att_sp.R_body[0][0], R.data, sizeof(_att_sp.R_body));
+						for(int i=0; i<3; i++)
+						{
+							_att_sp.R_body0[i] = R(0,i);
+							_att_sp.R_body1[i] = R(1,i);
+							_att_sp.R_body2[i] = R(2,i);
+						}
+						_att_sp.R_valid = true;
 
 						_att_sp.roll_body = 0.0f;
 						_att_sp.pitch_body = 0.0f;

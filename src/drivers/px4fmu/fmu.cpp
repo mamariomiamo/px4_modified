@@ -1353,21 +1353,22 @@ PX4FMU::cycle()
 					up_pwm_update();
 				}
 // eric comment out
-//				actuator_outputs_s actuator_outputs = {};
-//				actuator_outputs.timestamp = hrt_absolute_time();
-//				actuator_outputs.noutputs = mixed_num_outputs;
-//
-//				// zero unused outputs
-//				for (size_t i = 0; i < mixed_num_outputs; ++i) {
-//					actuator_outputs.output[i] = pwm_limited[i];
-//				}
-
 				actuator_outputs_s actuator_outputs = {};
 				actuator_outputs.timestamp = hrt_absolute_time();
-				actuator_outputs.noutputs = 4;
-				for (size_t i = 0; i < 4; ++i) {
-					actuator_outputs.output[i] = _controls[0].control[i];
+				actuator_outputs.noutputs = mixed_num_outputs;
+
+				// zero unused outputs
+				for (size_t i = 0; i < mixed_num_outputs; ++i) {
+					actuator_outputs.output[i] = pwm_limited[i];
 				}
+//				actuator_outputs_s actuator_outputs = {};
+//				actuator_outputs.timestamp = hrt_absolute_time();
+//				actuator_outputs.noutputs = 4;
+//				for (size_t i = 0; i < 4; ++i) {
+//					actuator_outputs.output[i] = _controls[0].control[i];
+//				}
+//				printf("fmu: %.3f, %.3f, %.3f, %.3f", (double)_controls[0].control[0],(double)_controls[0].control[1],
+//						(double)_controls[0].control[2],(double)_controls[0].control[3]);
 
 				orb_publish_auto(ORB_ID(actuator_outputs), &_outputs_pub, &actuator_outputs, &_class_instance, ORB_PRIO_DEFAULT);
 

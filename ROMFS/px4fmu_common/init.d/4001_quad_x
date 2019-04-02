@@ -22,6 +22,9 @@
 
 sh /etc/init.d/rc.mc_defaults
 
-set MIXER quad_x
+#set MIXER quad_x
+set MIXER IO_pass_tlab
 
 set PWM_OUT 1234
+#param set PWM_MIN 900
+#param set PWM_MAX 1900

@@ -48,10 +48,10 @@
 #include <px4_defines.h>
 #include <px4_tasks.h>
 #include <px4_posix.h>
-#include <px4_getopt.h>
-#include <px4_defines.h>
-#include <px4_log.h>
-#include <px4_module.h>
+//#include <px4_getopt.h>
+//#include <px4_defines.h>
+//#include <px4_log.h>
+//#include <px4_module.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,15 +61,15 @@
 #include <math.h>
 #include <poll.h>
 #include <drivers/drv_hrt.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-
-#ifdef __PX4_NUTTX
-#include <nuttx/fs/ioctl.h>
-#endif
-
-#include <arch/board/board.h>
+//#include <sys/ioctl.h>
+//#include <sys/stat.h>
+//#include <fcntl.h>
+//
+//#ifdef __PX4_NUTTX
+//#include <nuttx/fs/ioctl.h>
+//#endif
+//
+//#include <arch/board/board.h>
 
 
 #include <uORB/uORB.h>
@@ -105,10 +105,10 @@
 #include <lib/ecl/geo/geo.h>
 
 
-//#include "systemlib/systemlib.h"
-#include "systemlib/err.h"
-//#include "systemlib/param/param.h"
-#include "drivers/drv_pwm_output.h"
+////#include "systemlib/systemlib.h"
+//#include "systemlib/err.h"
+////#include "systemlib/param/param.h"
+//#include "drivers/drv_pwm_output.h"
 #include <matrix/matrix/math.hpp>
 #include <lib/mixer/mixer.h>
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
@@ -132,13 +132,13 @@ extern "C" __EXPORT int mc_att_control_lqr_main(int argc, char *argv[]);
 #define YAW_DEADZONE	0.05f
 #define MIN_TAKEOFF_THRUST    0.2f
 #define ANGLE_I_LIMIT	1.0f
-//#define QUAD  //if define, the code is for quadrotor
+#define QUAD  //if define, the code is for quadrotor
 //#define HEX   //if define, the code is for HEX
-#define OCT		//if define, the code is for OCT
+//#define OCT		//if define, the code is for OCT
 //#define FIX_POS_SHUTTER
 
-#define PWM_OUTPUT_BASE_DEVICE_PATH "/dev/pwm_output"
-#define PWM_OUTPUT0_DEVICE_PATH	"/dev/pwm_output0"
+//#define PWM_OUTPUT_BASE_DEVICE_PATH "/dev/pwm_output"
+//#define PWM_OUTPUT0_DEVICE_PATH	"/dev/pwm_output0"
 
 class MulticopterAttitudeControlLQR
 {
@@ -178,8 +178,8 @@ private:
 	int 	_battery_sub;
 	int		_sensor_combined_sub;
 	int		_v_status_sub;
-	//	int		_pos_sp_triplet_sub;
-	//	int     _odroid_status_sub;
+//	int		_pos_sp_triplet_sub;
+//	int     _odroid_status_sub;
 	int     _odroid_preflight_status_sub;
 	int     _vehicle_land_detected_sub;
 
@@ -187,7 +187,7 @@ private:
 	orb_advert_t	_v_rates_sp_pub;		/**< rate setpoint publication */
 	orb_advert_t	_actuators_0_pub;		/**< attitude actuator controls publication */
 	orb_advert_t    _actuators_1_pub;
-	//	orb_advert_t    _motor_status_pub;
+//	orb_advert_t    _motor_status_pub;
 
 	bool		_actuators_0_circuit_breaker_enabled;	/**< circuit breaker to suppress output */
 
@@ -203,14 +203,14 @@ private:
 	struct vehicle_local_position_s    _local_pos;
 	struct vehicle_gps_position_s       _gps;
 	struct battery_status_s				_battery;
-	//	struct motor_status_s				_motor_status;
+//	struct motor_status_s				_motor_status;
 	struct sensor_combined_s			_sensor_combined;
 	struct vehicle_status_s				_v_status;
 	struct vehicle_land_detected_s		_v_land_detected;
-	//	struct position_setpoint_triplet_s		_pos_sp_triplet;
-	//struct odroid_status_s                   _odroid_status;
-	//	struct odroid_preflight_status_s _odroid_preflight_status;
-	//	struct vehicle_serial_command_s        _vehicle_serial_cmd;
+//	struct position_setpoint_triplet_s		_pos_sp_triplet;
+//	struct odroid_status_s                   _odroid_status;
+//	struct odroid_preflight_status_s _odroid_preflight_status;
+//	struct vehicle_serial_command_s        _vehicle_serial_cmd;
 
 	bool gps_valid;
 	bool home_valid;
@@ -1718,7 +1718,7 @@ MulticopterAttitudeControlLQR::task_main()
 	parameters_update();
 
 
-	/* direct feed motor pwm */
+/*	 direct feed motor pwm
 	const char *dev = PWM_OUTPUT0_DEVICE_PATH;
 	//	int alt_rate = -1; // Default to indicate not set.
 	//	uint32_t alt_channel_groups = 0;
@@ -1746,17 +1746,17 @@ MulticopterAttitudeControlLQR::task_main()
 		channels /= 10;
 	}
 	set_mask = 0xf;
-	/* open for ioctl only */
+	 open for ioctl only
 	int fd = px4_open(dev, 0);
 	if (fd < 0) {
 		PX4_ERR("can't open %s", dev);
 	}
-	/* get the number of servo channels */
+	 get the number of servo channels
 	unsigned servo_count;
 	ret = px4_ioctl(fd, PWM_SERVO_GET_COUNT, (unsigned long)&servo_count);
 	if (ret != OK) {
 		PX4_ERR("PWM_SERVO_GET_COUNT");
-	}
+	}*/
 
 
 	/* wakeup source: vehicle attitude */

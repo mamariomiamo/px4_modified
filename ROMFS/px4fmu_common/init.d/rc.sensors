@@ -416,7 +416,7 @@ fi
 # Benewake TFMini
 if param greater SENS_EN_TFMINI 0
 then
-	if ver hwcmp PX4FMU_V2 PX4FMU_V4PRO
+	if ver hwcmp PX4FMU_V2 PX4FMU_V4PRO PX4FMU_V4
 	then
 		# start the driver on serial 4/5
 		tfmini start -d /dev/ttyS2

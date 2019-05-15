@@ -45,7 +45,10 @@
 #include "drv_orb_dev.h"
 
 #define RANGE_FINDER_BASE_DEVICE_PATH	"/dev/range_finder"
+#define RANGE_FINDER_TEST_DEVICE_PATH	"/dev/range_finder_test"
+
 #define RANGE_FINDER0_DEVICE_PATH	"/dev/range_finder0"
+#define RANGE_FINDER1_DEVICE_PATH	"/dev/range_finder1"
 #define MB12XX_MAX_RANGEFINDERS	12	// Maximum number of Maxbotix sensors on bus
 
 #endif /* _DRV_RANGEFINDER_H */

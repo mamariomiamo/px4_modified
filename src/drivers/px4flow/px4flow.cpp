@@ -247,7 +247,7 @@ PX4FLOW::init()
 		return ret;
 	}
 
-	_class_instance = register_class_devname(RANGE_FINDER_BASE_DEVICE_PATH);
+	_class_instance = register_class_devname(RANGE_FINDER_TEST_DEVICE_PATH/*RANGE_FINDER_BASE_DEVICE_PATH*/);
 
 	/* get a publish handle on the range finder topic */
 	struct distance_sensor_s ds_report = {};
@@ -597,7 +597,7 @@ PX4FLOW::collect()
 	distance_report.covariance = 0.0f;
 	distance_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_ULTRASOUND;
 	/* TODO: the ID needs to be properly set */
-	distance_report.id = 0;
+	distance_report.id = 1;
 	distance_report.orientation = _sonar_rotation;
 
 	orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &distance_report);

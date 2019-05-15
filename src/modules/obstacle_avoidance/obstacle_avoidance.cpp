@@ -292,7 +292,7 @@ void Obstacle_Avoidance::run()
 					//printf("distance is smaller than red line threshold, %.3f\n", (double)distance_sensor.current_distance);
 					//od_report.oa_x = -0.8f; //set max speed set in pixracer
 					//od_report.oa_y = 0.0f;
-					vel_x_local = -0.8f;
+					vel_x_local = -0.6f;
 					od_report.oa_x = vel_x_local;
 					od_report.oa_y = vel_y_local;
 					//od_report.oa_x = cosf(_yaw) *  vel_x_local - sinf(_yaw) * vel_y_local;//-vel_x_local;

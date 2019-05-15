@@ -49,7 +49,7 @@ set(msg_files
 	debug_value.msg
 	debug_vect.msg
 	differential_pressure.msg
-	distance_sensor.msg
+	distance_sensor.msg	
 	ekf2_innovations.msg
 	ekf2_timestamps.msg
 	esc_report.msg

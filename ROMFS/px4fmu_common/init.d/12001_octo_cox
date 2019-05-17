@@ -19,6 +19,8 @@
 
 sh /etc/init.d/rc.mc_defaults
 
-set MIXER octo_cox
+#set MIXER octo_cox
+set MIXER IO_pass_tlab_8
+
 
 set PWM_OUT 12345678

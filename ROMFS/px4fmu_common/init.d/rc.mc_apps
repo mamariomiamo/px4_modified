@@ -57,7 +57,7 @@ fi
 #	mc_pos_control_nl start
 #fi
 
-obstacle_avoidance start -e -r 150 -g 1000 -t 2.0
+#obstacle_avoidance start -e -r 150 -g 1000 -t 2.0
 
 #
 # Start Land Detector

@@ -52,6 +52,7 @@
 //#include <px4_defines.h>
 //#include <px4_log.h>
 //#include <px4_module.h>
+#include <mathlib/math/filter/LowPassFilter2p.hpp>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -132,9 +133,9 @@ extern "C" __EXPORT int mc_att_control_lqr_main(int argc, char *argv[]);
 #define YAW_DEADZONE	0.05f
 #define MIN_TAKEOFF_THRUST    0.2f
 #define ANGLE_I_LIMIT	1.0f
-//#define QUAD  //if define, the code is for quadrotor
+#define QUAD  //if define, the code is for quadrotor
 //#define HEX   //if define, the code is for HEX
-#define OCT		//if define, the code is for OCT
+//#define OCT		//if define, the code is for OCT
 //#define FIX_POS_SHUTTER
 
 //#define PWM_OUTPUT_BASE_DEVICE_PATH "/dev/pwm_output"
@@ -222,11 +223,15 @@ private:
 	float yaw_sp_rate_pre;
 	float temp_filtered;
 	float pressure_filtered;
+	static constexpr const float initial_update_rate_hz = 250.f; /**< loop update rate used for initialization */
+	float _loop_update_rate_hz{initial_update_rate_hz};          /**< current rate-controller loop update rate in [Hz] */
 
 
 	perf_counter_t	_loop_perf;			/**< loop performance counter */
+	math::LowPassFilter2p _lp_filters_d[3];                      /**< low-pass filters for D-term (roll, pitch & yaw) */
 
 	matrix::Vector3f		_rates_prev;	/**< angular rates on previous step */
+	matrix::Vector3f 		_rates_prev_filtered;		/**< angular rates on previous step (low-pass filtered) */
 	matrix::Vector3f		_rates_sp;		/**< angular rates setpoint */
 	matrix::Vector3f		_rates_d_prev;
 	matrix::Vector3f		_rates_d;
@@ -488,7 +493,11 @@ MulticopterAttitudeControlLQR::MulticopterAttitudeControlLQR() :
 							_actuators_0_circuit_breaker_enabled(false),
 
 							/* performance counters */
-							_loop_perf(perf_alloc(PC_ELAPSED, "mc_att_control_lqr"))
+							_loop_perf(perf_alloc(PC_ELAPSED, "mc_att_control_lqr")),
+							_lp_filters_d{
+							{250.f/*initial_update_rate_hz*/, 50.f},
+							{250.f/*initial_update_rate_hz*/, 50.f},
+							{250.f/*initial_update_rate_hz*/, 50.f}} // will be initialized correctly when params are loaded
 
 {
 	memset(&_v_att, 0, sizeof(_v_att));
@@ -516,6 +525,7 @@ MulticopterAttitudeControlLQR::MulticopterAttitudeControlLQR() :
 	_params.check_on_off = 0.0f;
 
 	_rates_prev.zero();
+	_rates_prev_filtered.zero();
 	_rates_sp.zero();
 	_angle_int.zero();
 	_rates_d_prev.zero();
@@ -626,6 +636,15 @@ MulticopterAttitudeControlLQR::parameters_update()
 	_params.angle_i(2) = v;
 	param_get(_params_handles.yaw_rate_d, &v);
 	_params.rate_d(2) = v;
+
+	if (fabsf(_lp_filters_d[0].get_cutoff_freq() - 10.0f/*_d_term_cutoff_freq.get()*/) > 0.01f) {
+		_lp_filters_d[0].set_cutoff_frequency(_loop_update_rate_hz, 10.0f/*_d_term_cutoff_freq.get()*/);
+		_lp_filters_d[1].set_cutoff_frequency(_loop_update_rate_hz, 10.0f/*_d_term_cutoff_freq.get()*/);
+		_lp_filters_d[2].set_cutoff_frequency(_loop_update_rate_hz, 10.0f/*_d_term_cutoff_freq.get()*/);
+		_lp_filters_d[0].reset(_rates_prev(0));
+		_lp_filters_d[1].reset(_rates_prev(1));
+		_lp_filters_d[2].reset(_rates_prev(2));
+	}
 
 	param_get(_params_handles.yaw_ff, &_params.yaw_ff);
 	param_get(_params_handles.yaw_rate_max, &_params.yaw_rate_max);
@@ -813,7 +832,9 @@ void
 MulticopterAttitudeControlLQR::vehicle_status_poll()
 {
 	bool updated;
+
 	orb_check(_v_status_sub,&updated);
+
 	if(updated){
 		orb_copy(ORB_ID(vehicle_status),_v_status_sub,&_v_status);
 	}
@@ -1109,6 +1130,7 @@ MulticopterAttitudeControlLQR::control_attitude(float dt)
 		//		printf("_v_att: %.3f, %.3f, %.3f\n", (double)euler_mea1(0), (double)euler_mea1(1), (double)euler_mea1(2));
 //				printf("_v_att_sp: %.3f, %.3f, %.3f, %.3f\n",
 //						(double)_v_att_sp.roll_body, (double)_v_att_sp.pitch_body, (double)_v_att_sp.yaw_body, (double)_v_att_sp.thrust);
+		printf("_v_att: %.3f, %.3f, %.3f\n", (double)_v_att_sp.roll_body, (double)_v_att_sp.pitch_body, (double)_v_att_sp.yaw_body);
 	}
 
 	/* rotation matrix for current state */
@@ -1243,11 +1265,13 @@ void MulticopterAttitudeControlLQR::pre_arm_check()
 		_actuators.control[3] = -1.0f;
 #endif
 #ifdef OCT
-		_actuators.control[0] = -0.8f + 1.0f;
+                //_actuators.control[0] = -0.8f + 1.0f;
+                _actuators.control[0] = -0.8f;
 		_actuators.control[1] = -1.0f;
 		_actuators.control[2] = -1.0f;
 		_actuators.control[3] = -1.0f;
-		_actuators.control[4] = -0.8f + 1.0f;
+                //_actuators.control[4] = -0.8f + 1.0f;
+                _actuators.control[4] = -0.8f;
 		_actuators.control[5] = -1.0f;
 		_actuators.control[6] = -1.0f;
 		_actuators.control[7] = -1.0f;
@@ -1268,11 +1292,13 @@ void MulticopterAttitudeControlLQR::pre_arm_check()
 #endif
 #ifdef OCT
 		_actuators.control[0] = -1.0f;
-		_actuators.control[1] = -0.8f + 1.0f;
+                //_actuators.control[1] = -0.8f + 1.0f;
+                _actuators.control[1] = -0.8f;
 		_actuators.control[2] = -1.0f;
 		_actuators.control[3] = -1.0f;
 		_actuators.control[4] = -1.0f;
-		_actuators.control[5] = -0.8f + 1.0f;
+                //_actuators.control[5] = -0.8f + 1.0f;
+                _actuators.control[5] = -0.8f;
 		_actuators.control[6] = -1.0f;
 		_actuators.control[7] = -1.0f;
 #endif
@@ -1292,11 +1318,13 @@ void MulticopterAttitudeControlLQR::pre_arm_check()
 #ifdef OCT
 		_actuators.control[0] = -1.0f;
 		_actuators.control[1] = -1.0f;
-		_actuators.control[2] = -0.8f + 1.0f;
+                //_actuators.control[2] = -0.8f + 1.0f;
+                _actuators.control[2] = -0.8f;
 		_actuators.control[3] = -1.0f;
 		_actuators.control[4] = -1.0f;
 		_actuators.control[5] = -1.0f;
-		_actuators.control[6] = -0.8f + 1.0f;
+                //_actuators.control[6] = -0.8f + 1.0f;
+                _actuators.control[6] = -0.8f;
 		_actuators.control[7] = -1.0f;
 #endif
 		/*			if(_battery.current_a > max_3_current)
@@ -1316,11 +1344,13 @@ void MulticopterAttitudeControlLQR::pre_arm_check()
 		_actuators.control[0] = -1.0f;
 		_actuators.control[1] = -1.0f;
 		_actuators.control[2] = -1.0f;
-		_actuators.control[3] = -0.8f + 1.0f;
+                //_actuators.control[3] = -0.8f + 1.0f;
+                _actuators.control[3] = -0.8f;
 		_actuators.control[4] = -1.0f;
 		_actuators.control[5] = -1.0f;
 		_actuators.control[6] = -1.0f;
-		_actuators.control[7] = -0.8f + 1.0f;
+                //_actuators.control[7] = -0.8f + 1.0f;
+                _actuators.control[7] = -0.8f;
 #endif
 		/*			if(_battery.current_a > max_4_current)
 			{
@@ -1397,7 +1427,7 @@ void MulticopterAttitudeControlLQR::calculate_delta()
 		//printf("u: %.3f, %.3f, %.3f, %.3f\n", (double)_u(0), (double)_u(1), (double)_u(2), (double)_u(3));
 			  printf("actuators: %.3f, %.3f, %.3f, %.3f, _att_control, %.3f, %.3f, %.3f\n",
 					  (double)_actuators.control[0], (double)_actuators.control[1], (double)_actuators.control[2], (double)_actuators.control[3],
-					  (double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
+					  (double)_att_control(0),(double)_att_control(1),(double)_att_control(2)) ;
 	}
 
 }
@@ -1500,14 +1530,25 @@ void MulticopterAttitudeControlLQR::calculate_delta()
 	_actuators1.control[2] = _u(2);
 	_actuators1.control[3] = _thrust_sp;
 
-  _actuators.control[0] = limit_range(((sqrtf(_omega_square(0))-Ct)/Cm),-1.0f,1.0f);//*2-1
+   //*2-1
+  /*_actuators.control[0] = limit_range(((sqrtf(_omega_square(0))-Ct)/Cm),-1.0f,1.0f);
   _actuators.control[1] = limit_range(((sqrtf(_omega_square(1))-Ct)/Cm),-1.0f,1.0f);
   _actuators.control[2] = limit_range(((sqrtf(_omega_square(2))-Ct)/Cm),-1.0f,1.0f);
   _actuators.control[3] = limit_range(((sqrtf(_omega_square(3))-Ct)/Cm),-1.0f,1.0f);
   _actuators.control[4] = limit_range(((sqrtf(_omega_square(4))-Ct)/Cm),-1.0f,1.0f);
   _actuators.control[5] = limit_range(((sqrtf(_omega_square(5))-Ct)/Cm),-1.0f,1.0f);
   _actuators.control[6] = limit_range(((sqrtf(_omega_square(6))-Ct)/Cm),-1.0f,1.0f);
-  _actuators.control[7] = limit_range(((sqrtf(_omega_square(7))-Ct)/Cm),-1.0f,1.0f);
+  _actuators.control[7] = limit_range(((sqrtf(_omega_square(7))-Ct)/Cm),-1.0f,1.0f);*/
+
+  //*2-1
+  _actuators.control[0] = limit_range(((sqrtf(_omega_square(0))-Ct)/Cm)*2-1,-1.0f,1.0f);
+  _actuators.control[1] = limit_range(((sqrtf(_omega_square(1))-Ct)/Cm)*2-1,-1.0f,1.0f);
+  _actuators.control[2] = limit_range(((sqrtf(_omega_square(2))-Ct)/Cm)*2-1,-1.0f,1.0f);
+  _actuators.control[3] = limit_range(((sqrtf(_omega_square(3))-Ct)/Cm)*2-1,-1.0f,1.0f);
+  _actuators.control[4] = limit_range(((sqrtf(_omega_square(4))-Ct)/Cm)*2-1,-1.0f,1.0f);
+  _actuators.control[5] = limit_range(((sqrtf(_omega_square(5))-Ct)/Cm)*2-1,-1.0f,1.0f);
+  _actuators.control[6] = limit_range(((sqrtf(_omega_square(6))-Ct)/Cm)*2-1,-1.0f,1.0f);
+  _actuators.control[7] = limit_range(((sqrtf(_omega_square(7))-Ct)/Cm)*2-1,-1.0f,1.0f);
 
 }
 
@@ -1587,12 +1628,24 @@ MulticopterAttitudeControlLQR::control_attitude_rates(float dt)
 	/* angular rates error */
 	matrix::Vector3f rates_err = _rates_sp - rates;
 
-	_rates_d = (rates - _rates_prev)/dt;
+	/* apply low-pass filtering to the rates for D-term */
+	matrix::Vector3f rates_filtered(
+		_lp_filters_d[0].apply(rates(0)),
+		_lp_filters_d[1].apply(rates(1)),
+		_lp_filters_d[2].apply(rates(2)));
+
+	//printf("rates are filtered :)");
+
+	_rates_d = (rates_filtered - _rates_prev_filtered)/dt;
+
+	/* apply low-pass filtering to the rates for D-term */
+
 
 
 	_att_control = _params.rate_p.emult(rates_err) - _params.rate_d.emult(_rates_d) + _angle_int + _params.att_p.emult(_angle_error);
 	_rates_prev = rates;
-	_rates_d_prev = _rates_d;
+	_rates_prev_filtered = rates_filtered;
+	//_rates_d_prev = _rates_d;
 
 
 	/* update integral only if not saturated on low limit */

@@ -140,10 +140,11 @@ private:
 	ESC_UART_BUF 	_uartbuf = {};
 	EscPacket 	_packet = {};
 
+/*
 	DEFINE_PARAMETERS(
 		(ParamBool<px4::params::MC_AIRMODE>) _airmode   ///< multicopter air-mode
 	)
-
+*/
 	void subscribe();
 	void send_esc_outputs(const uint16_t *pwm, const uint8_t motor_cnt);
 	static int control_callback_trampoline(uintptr_t handle,
@@ -419,9 +420,11 @@ void TAP_ESC::cycle()
 		}
 	}
 
+	/*
 	if (_mixers) {
 		_mixers->set_airmode(_airmode.get());
 	}
+	*/
 
 	/* check if anything updated */
 	int ret = px4_poll(_poll_fds, _poll_fds_num, 5);

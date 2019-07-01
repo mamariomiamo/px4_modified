@@ -933,26 +933,26 @@ bool prearm_check(orb_advert_t *mavlink_log_pub, const vehicle_status_flags_s &s
 	}
 
 	// battery and system power status
-	if (!status_flags.circuit_breaker_engaged_power_check) {
-
-		// Fail transition if power is not good
-		if (!status_flags.condition_power_input_valid) {
-			if (reportFailures) {
-				mavlink_log_critical(mavlink_log_pub, "ARMING DENIED: Connect power module");
-			}
-
-			prearm_ok = false;
-		}
-
-		// main battery level
-		if (battery.warning >= battery_status_s::BATTERY_WARNING_LOW) {
-			if (prearm_ok && reportFailures) {
-				mavlink_log_critical(mavlink_log_pub, "ARMING DENIED: LOW BATTERY");
-			}
-
-			prearm_ok = false;
-		}
-	}
+//	if (!status_flags.circuit_breaker_engaged_power_check) {
+//
+//		// Fail transition if power is not good
+//		if (!status_flags.condition_power_input_valid) {
+//			if (reportFailures) {
+//				mavlink_log_critical(mavlink_log_pub, "ARMING DENIED: Connect power module");
+//			}
+//
+//			prearm_ok = false;
+//		}
+//
+//		// main battery level
+//		if (battery.warning >= battery_status_s::BATTERY_WARNING_LOW) {
+//			if (prearm_ok && reportFailures) {
+//				mavlink_log_critical(mavlink_log_pub, "ARMING DENIED: LOW BATTERY");
+//			}
+//
+//			prearm_ok = false;
+//		}
+//	}
 
 	// Arm Requirements: mission
 	if (arm_requirements & ARM_REQ_MISSION_BIT) {

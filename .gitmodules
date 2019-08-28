@@ -2,6 +2,12 @@
 	path = mavlink/include/mavlink/v2.0
 	url = https://github.com/mavlink/c_library_v2.git
 	branch = master
+[submodule "mavlink/include/mavlink/v1.0"]
+	path = mavlink/include/mavlink/v1.0
+	url = https://github.com/mavlink/c_library_v1.git
+[submodule "NuttX"]
+	path = NuttX
+	url = https://github.com/PX4/PX4NuttX.git
 [submodule "src/modules/uavcan/libuavcan"]
 	path = src/modules/uavcan/libuavcan
 	url = https://github.com/UAVCAN/libuavcan.git
@@ -14,6 +20,12 @@
 	path = msg/tools/gencpp
 	url = https://github.com/ros/gencpp.git
 	branch = indigo-devel
+[submodule "Tools/genmsg"]
+	path = Tools/genmsg
+	url = https://github.com/ros/genmsg.git
+[submodule "Tools/gencpp"]
+	path = Tools/gencpp
+	url = https://github.com/ros/gencpp.git
 [submodule "Tools/jMAVSim"]
 	path = Tools/jMAVSim
 	url = https://github.com/PX4/jMAVSim.git
@@ -58,3 +70,6 @@
 	path = cmake/configs/uavcan_board_ident
 	url = https://github.com/PX4/uavcan_board_ident.git
 	branch = master
+[submodule "src/lib/micro-CDR"]
+	path = src/lib/micro-CDR
+	url = https://github.com/eProsima/micro-CDR.git

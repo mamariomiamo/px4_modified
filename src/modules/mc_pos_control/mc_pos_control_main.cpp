@@ -1285,13 +1285,13 @@ MulticopterPositionControl::control_manual()
 		/* set horizontal velocity setpoint with roll/pitch stick */
 		man_vel_sp(0) = math::expo_deadzone(_manual.x, _xy_vel_man_expo.get(), _hold_dz.get());
 		man_vel_sp(1) = math::expo_deadzone(_manual.y, _xy_vel_man_expo.get(), _hold_dz.get());
-		if(_manual.aux1 > 0)//need to test depends on rc channel settings, aux for enable obstacle avoidance assist mode, this mode is under posctl mode
+		if(_manual.aux2 > 0)//need to test depends on rc channel settings, aux for enable obstacle avoidance assist mode, this mode is under posctl mode
 		{
 			if(oa_cmd.oa_x < -0.05f || oa_cmd.oa_x > 0.05f) //means reverse control enabled
 			{
 				oa_vel_sp(0) = oa_cmd.oa_x;
-				if(oa_vel_sp(0) < -0.7f){
-				man_vel_sp(0) = -1.0f;
+				if(oa_vel_sp(0) < -0.5f){
+				man_vel_sp(0) = 0.0f;//-1.0f;
 				}
 				//printf("I get it, obstacle_avoidance cmd x: %.3f, y:%.3f \n", (double)oa_cmd.oa_x, (double)oa_cmd.oa_y);
 			}

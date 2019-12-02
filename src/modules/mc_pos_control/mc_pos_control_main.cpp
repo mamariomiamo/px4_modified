@@ -229,7 +229,10 @@ private:
 		(ParamInt<px4::params::MPC_ALT_MODE>) _alt_mode,
 		(ParamFloat<px4::params::RC_FLT_CUTOFF>) _rc_flt_cutoff,
 		(ParamFloat<px4::params::RC_FLT_SMP_RATE>) _rc_flt_smp_rate,
-		(ParamFloat<px4::params::MPC_ACC_HOR_ESTM>) _acc_max_estimator_xy
+		(ParamFloat<px4::params::MPC_ACC_HOR_ESTM>) _acc_max_estimator_xy,
+		(ParamFloat<px4::params::MPC_XY_VEL_P_RPT>)_xy_vel_p_rpt, /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_XY_P_RPT>)_xy_p_rpt,		  /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_JERK_MAX_RPT>)_max_jerk_rpt		  /**zt: used to generate thrust setpoint with RPT control**/
 
 	);
 
@@ -262,6 +265,8 @@ private:
 	matrix::Vector3f _vel_p;
 	matrix::Vector3f _vel_i;
 	matrix::Vector3f _vel_d;
+	matrix::Vector3f _pos_p_rpt; /**zt: used to generate thrust setpoint with RPT control**/
+	matrix::Vector3f _vel_p_rpt; /**zt: used to generate thrust setpoint with RPT control**/
 	float _tilt_max_air; /**< maximum tilt angle [rad] */
 	float _tilt_max_land; /**< maximum tilt angle during landing [rad] */
 	float _man_tilt_max;
@@ -285,6 +290,11 @@ private:
 	matrix::Vector3f _curr_pos_sp;  /**< current setpoint of the triplets */
 	matrix::Vector3f _prev_pos_sp; /**< previous setpoint of the triples */
 	matrix::Vector2f _stick_input_xy_prev; /**< for manual controlled mode to detect direction change */
+	matrix::Vector3f _acc_sp;			   /**zt: used for control**/
+	matrix::Vector3f _acc_sp_smoothened;   /**zt: used for RPT control, to ensure acc_sp is smoothened**/
+
+	float _jerk_rpt; /**zt: for RPT**/
+	//float dt_rpt; /**zt: for RPT acc_smoothened calculation; TODO: need to check for correction**/
 
 	matrix::Dcmf _R;			/**< rotation matrix from attitude quaternions */
 	float _yaw;				/**< yaw angle (euler) */
@@ -420,6 +430,11 @@ private:
 	 * Main sensor collection task.
 	 */
 	void		task_main();
+
+	/**
+	 * zt: Math function declaration to constrain the output (used in RPT)
+	 */
+	float constrain_ref(float x, float cons);
 };
 
 namespace pos_control
@@ -483,6 +498,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_z_reset_counter(0),
 	_xy_reset_counter(0),
 	_heading_reset_counter(0)
+	//dt_rpt(0);//zt: RPT control
 {
 	/* Make the attitude quaternion valid */
 	_att.q[0] = 1.0f;
@@ -502,6 +518,8 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_curr_pos_sp.zero();
 	_prev_pos_sp.zero();
 	_stick_input_xy_prev.zero();
+	_acc_sp.zero();			   /**zt: used for RPT control**/
+	_acc_sp_smoothened.zero(); /**zt: used for RPT control**/
 
 	_R.identity();
 	_R_setpoint.identity();
@@ -582,6 +600,18 @@ MulticopterPositionControl::parameters_update(bool force)
 		_vel_d(0) = _xy_vel_d.get();
 		_vel_d(1) = _xy_vel_d.get();
 		_vel_d(2) = _z_vel_d.get();
+
+		/*zt: Prepare pos rpt gains*/
+		_pos_p_rpt(0) = _xy_p_rpt.get();
+		_pos_p_rpt(1) = _xy_p_rpt.get();
+		_pos_p_rpt(2) = _z_p.get();
+
+		_jerk_rpt = _max_jerk_rpt.get(); /*zt: for RPT*/
+
+		/*zt: Prepare vel rpt gains*/
+		_vel_p_rpt(0) = _xy_vel_p_rpt.get();
+		_vel_p_rpt(1) = _xy_vel_p_rpt.get();
+		_vel_p_rpt(2) = _z_vel_p.get();
 
 		_thr_hover.set(math::constrain(_thr_hover.get(), _thr_min.get(), _thr_max.get()));
 
@@ -1479,8 +1509,43 @@ void
 MulticopterPositionControl::control_offboard()
 {
 	if (_pos_sp_triplet.current.valid) {
+		//zt: check if we are using RPT control
+		if(_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_RPT){
 
-		if (_control_mode.flag_control_position_enabled && _pos_sp_triplet.current.position_valid) {
+			//zt: safety checks.
+			//Todo: see if this is necessary
+			if (fabsf(_pos_sp_triplet.current.vx) <= FLT_EPSILON &&
+			    fabsf(_pos_sp_triplet.current.vy) <= FLT_EPSILON &&
+			    _local_pos.xy_valid) {
+
+				if (!_hold_offboard_xy) {
+					_pos_sp(0) = _pos(0);
+					_pos_sp(1) = _pos(1);
+					_hold_offboard_xy = true;
+				}
+
+				_run_pos_control = true;
+			} else {
+				/*zt: Get the position, velocity and acceleration setpoints from offboard command for RPT control later*/
+				_pos_sp(0) = _pos_sp_triplet.current.x;
+				_pos_sp(1) = _pos_sp_triplet.current.y;
+				_pos_sp(2) = _pos_sp_triplet.current.z; /*zt: this is different from v1.3 whereby altitude is used*/
+				_vel_sp(0) = _pos_sp_triplet.current.vx;
+				_vel_sp(1) = _pos_sp_triplet.current.vy;
+				_vel_sp(2) = _pos_sp_triplet.current.vz; /*zt: Todo: check if this is negative sign?*/
+
+				_acc_sp(0) = _pos_sp_triplet.current.a_x;
+				_acc_sp(1) = _pos_sp_triplet.current.a_y;
+				_acc_sp(2) = _pos_sp_triplet.current.a_z; /*zt: Todo: check if this isnegative sign?*/
+
+				/**zt: TODO: check if these flags are necessary**/
+				_run_pos_control = false;
+				_run_alt_control = false;
+				//_reset_pos_sp = true;
+				//_reset_alt_sp = true;
+			}
+
+		} else if (_control_mode.flag_control_position_enabled && _pos_sp_triplet.current.position_valid) {
 			/* control position */
 			_pos_sp(0) = _pos_sp_triplet.current.x;
 			_pos_sp(1) = _pos_sp_triplet.current.y;
@@ -2468,6 +2533,16 @@ MulticopterPositionControl::calculate_velocity_setpoint()
 	_vel_sp_prev = _vel_sp;
 }
 
+/*zt: math function definition for RPT control*/
+float MulticopterPositionControl::constrain_ref(float x, float cons)
+{
+	if(x>cons)
+		x = cons;
+	else if (x< - cons)
+		x = - cons;
+	return x;
+}
+
 void
 MulticopterPositionControl::calculate_thrust_setpoint()
 {
@@ -2500,13 +2575,32 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 		}
 	}
 
+	/* zt: position error for RPT control*/
+	matrix::Vector3f pos_err = _pos_sp - _pos;
+
 	/* velocity error */
 	matrix::Vector3f vel_err = _vel_sp - _vel;
 
 	/* thrust vector in NED frame */
 	matrix::Vector3f thrust_sp;
 
-	if (_control_mode.flag_control_acceleration_enabled && _pos_sp_triplet.current.acceleration_valid) {
+	if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_RPT) { //zt: use rpt to compute thrust_sp
+		float acc_dot_temp;
+		acc_dot_temp = (_acc_sp(0) - _acc_sp_smoothened(0)) / _dt;
+		acc_dot_temp = constrain_ref(acc_dot_temp, _jerk_rpt * 1.2f);
+		_acc_sp_smoothened(0) = _acc_sp_smoothened(0) + acc_dot_temp * _dt;
+
+		acc_dot_temp = (_acc_sp(1) - _acc_sp_smoothened(1)) / _dt;
+		acc_dot_temp = constrain_ref(acc_dot_temp, _jerk_rpt * 1.2f);
+		_acc_sp_smoothened(1) = _acc_sp_smoothened(1) + acc_dot_temp * _dt;
+
+		acc_dot_temp = (_acc_sp(2) - _acc_sp_smoothened(2)) / _dt;
+		acc_dot_temp = constrain_ref(acc_dot_temp, _jerk_rpt * 1.2f);
+		_acc_sp_smoothened(2) = _acc_sp_smoothened(2) + acc_dot_temp * _dt;
+
+		thrust_sp = vel_err.emult(_vel_p_rpt) + _thrust_int + pos_err.emult(_pos_p_rpt) + _acc_sp_smoothened;
+
+	} else if (_control_mode.flag_control_acceleration_enabled && _pos_sp_triplet.current.acceleration_valid) {
 		thrust_sp = matrix::Vector3f(_pos_sp_triplet.current.a_x, _pos_sp_triplet.current.a_y, _pos_sp_triplet.current.a_z);
 
 	} else {

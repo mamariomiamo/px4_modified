@@ -1508,24 +1508,15 @@ MulticopterPositionControl::control_non_manual()
 void
 MulticopterPositionControl::control_offboard()
 {
+	//zt: flag for safety check, see if the setpoints for rpt are safe to be used
+	bool rpt_sp_valid = _pos_sp_triplet.current.position_valid && 
+						_pos_sp_triplet.current.velocity_valid && 
+						_pos_sp_triplet.current.acceleration_valid; 
+
 	if (_pos_sp_triplet.current.valid) {
-		//zt: check if we are using RPT control
-		if(_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_RPT){
 
-			//zt: safety checks.
-			//Todo: see if this is necessary
-			if (fabsf(_pos_sp_triplet.current.vx) <= FLT_EPSILON &&
-			    fabsf(_pos_sp_triplet.current.vy) <= FLT_EPSILON &&
-			    _local_pos.xy_valid) {
-
-				if (!_hold_offboard_xy) {
-					_pos_sp(0) = _pos(0);
-					_pos_sp(1) = _pos(1);
-					_hold_offboard_xy = true;
-				}
-
-				_run_pos_control = true;
-			} else {
+		//zt: see if the setpoints we received are meant for using RPT control
+		if(_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_RPT && rpt_sp_valid){
 				/*zt: Get the position, velocity and acceleration setpoints from offboard command for RPT control later*/
 				_pos_sp(0) = _pos_sp_triplet.current.x;
 				_pos_sp(1) = _pos_sp_triplet.current.y;
@@ -1543,7 +1534,6 @@ MulticopterPositionControl::control_offboard()
 				_run_alt_control = false;
 				//_reset_pos_sp = true;
 				//_reset_alt_sp = true;
-			}
 
 		} else if (_control_mode.flag_control_position_enabled && _pos_sp_triplet.current.position_valid) {
 			/* control position */
@@ -2546,6 +2536,11 @@ float MulticopterPositionControl::constrain_ref(float x, float cons)
 void
 MulticopterPositionControl::calculate_thrust_setpoint()
 {
+	//zt: flag for safety check, see if the setpoints for rpt will be safe to use
+	bool rpt_sp_valid = _pos_sp_triplet.current.position_valid && 
+						_pos_sp_triplet.current.velocity_valid && 
+						_pos_sp_triplet.current.acceleration_valid;
+
 	/* reset integrals if needed */
 	if (_control_mode.flag_control_climb_rate_enabled) {
 		if (_reset_int_z) {
@@ -2584,7 +2579,7 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 	/* thrust vector in NED frame */
 	matrix::Vector3f thrust_sp;
 
-	if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_RPT) { //zt: use rpt to compute thrust_sp
+	if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_RPT && rpt_sp_valid) { //zt: use rpt to compute thrust_sp
 		float acc_dot_temp;
 		acc_dot_temp = (_acc_sp(0) - _acc_sp_smoothened(0)) / _dt;
 		acc_dot_temp = constrain_ref(acc_dot_temp, _jerk_rpt * 1.2f);

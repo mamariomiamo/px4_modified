@@ -3589,6 +3589,9 @@ set_control_mode()
 		 * The control flags depend on what is ignored according to the offboard control mode topic
 		 * Inner loop flags (e.g. attitude) also depend on outer loop ignore flags (e.g. position)
 		 */
+		// When using RPT, acc flag is false.
+		control_mode.flag_control_rpt_enabled = offboard_control_mode.using_rpt;
+
 		control_mode.flag_control_rates_enabled = !offboard_control_mode.ignore_bodyrate ||
 				!offboard_control_mode.ignore_attitude ||
 				!offboard_control_mode.ignore_position ||
@@ -3603,6 +3606,7 @@ set_control_mode()
 		control_mode.flag_control_rattitude_enabled = false;
 
 		control_mode.flag_control_acceleration_enabled = !offboard_control_mode.ignore_acceleration_force &&
+				!offboard_control_mode.using_rpt &&
 				!status.in_transition_mode;
 
 		control_mode.flag_control_velocity_enabled = (!offboard_control_mode.ignore_velocity ||

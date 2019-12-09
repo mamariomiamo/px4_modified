@@ -68,6 +68,7 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/rpt_acceleration.h>
 
 #include <float.h>
 #include <lib/ecl/geo/geo.h>
@@ -153,6 +154,7 @@ private:
 
 	orb_advert_t	_att_sp_pub;			/**< attitude setpoint publication */
 	orb_advert_t	_local_pos_sp_pub;		/**< vehicle local position setpoint publication */
+	orb_advert_t	_rpt_acc_pub;			/*zt: used to log rpt acceleration info*/
 
 	orb_id_t _attitude_setpoint_id;
 
@@ -165,6 +167,7 @@ private:
 	struct vehicle_local_position_s			_local_pos;		/**< vehicle local position */
 	struct position_setpoint_triplet_s		_pos_sp_triplet;	/**< vehicle global position setpoint triplet */
 	struct vehicle_local_position_setpoint_s	_local_pos_sp;		/**< vehicle local position setpoint */
+	struct rpt_acceleration_s					_rpt_acc;	/*zt: used to log rpt acceleration info*/
 	struct home_position_s				_home_pos; 				/**< home position */
 
 	DEFINE_PARAMETERS(
@@ -232,6 +235,10 @@ private:
 		(ParamFloat<px4::params::MPC_ACC_HOR_ESTM>) _acc_max_estimator_xy,
 		(ParamFloat<px4::params::MPC_XY_VEL_P_RPT>)_xy_vel_p_rpt, /**zt: used to generate thrust setpoint with RPT control**/
 		(ParamFloat<px4::params::MPC_XY_P_RPT>)_xy_p_rpt,		  /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_XY_I_RPT>)_xy_i_rpt,		  /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_Z_VEL_P_RPT>)_z_vel_p_rpt, /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_Z_P_RPT>)_z_p_rpt,		  /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_Z_I_RPT>)_z_i_rpt,		  /**zt: used to generate thrust setpoint with RPT control**/
 		(ParamFloat<px4::params::MPC_JERK_MAX_RPT>)_max_jerk_rpt		  /**zt: used to generate thrust setpoint with RPT control**/
 
 	);
@@ -264,6 +271,7 @@ private:
 	matrix::Vector3f _pos_p;
 	matrix::Vector3f _vel_p;
 	matrix::Vector3f _vel_i;
+	matrix::Vector3f _pos_i_rpt; /**zt: position error integrator term used in RPT control**/
 	matrix::Vector3f _vel_d;
 	matrix::Vector3f _pos_p_rpt; /**zt: used to generate thrust setpoint with RPT control**/
 	matrix::Vector3f _vel_p_rpt; /**zt: used to generate thrust setpoint with RPT control**/
@@ -461,6 +469,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	/* publications */
 	_att_sp_pub(nullptr),
 	_local_pos_sp_pub(nullptr),
+	_rpt_acc_pub(nullptr), //zt: used for rpt acc info
 	_attitude_setpoint_id(nullptr),
 	_vehicle_status{},
 	_vehicle_land_detected{},
@@ -471,6 +480,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_local_pos{},
 	_pos_sp_triplet{},
 	_local_pos_sp{},
+	_rpt_acc{}, //zt: used for rpt acc info
 	_home_pos{},
 	_vel_x_deriv(this, "VELD"),
 	_vel_y_deriv(this, "VELD"),
@@ -601,17 +611,23 @@ MulticopterPositionControl::parameters_update(bool force)
 		_vel_d(1) = _xy_vel_d.get();
 		_vel_d(2) = _z_vel_d.get();
 
-		/*zt: Prepare pos rpt gains*/
+		/*zt: Prepare pos P gains for rpt control*/
 		_pos_p_rpt(0) = _xy_p_rpt.get();
 		_pos_p_rpt(1) = _xy_p_rpt.get();
-		_pos_p_rpt(2) = _z_p.get();
+		_pos_p_rpt(2) = _z_p_rpt.get();
 
-		_jerk_rpt = _max_jerk_rpt.get(); /*zt: for RPT*/
+		/*zt: Prepare pos I gains for rpt control*/
+		_pos_i_rpt(0) = _xy_i_rpt.get();
+		_pos_i_rpt(1) = _xy_i_rpt.get();
+		_pos_i_rpt(2) = _z_i_rpt.get();
+
+		/*zt: for RPT*/
+		_jerk_rpt = _max_jerk_rpt.get(); 
 
 		/*zt: Prepare vel rpt gains*/
 		_vel_p_rpt(0) = _xy_vel_p_rpt.get();
 		_vel_p_rpt(1) = _xy_vel_p_rpt.get();
-		_vel_p_rpt(2) = _z_vel_p.get();
+		_vel_p_rpt(2) = _z_vel_p_rpt.get();
 
 		_thr_hover.set(math::constrain(_thr_hover.get(), _thr_min.get(), _thr_max.get()));
 
@@ -1540,7 +1556,9 @@ MulticopterPositionControl::control_offboard()
 				_run_alt_control = false;
 				//_reset_pos_sp = true;
 				//_reset_alt_sp = true;
+
 				return;
+
 		} else if (_control_mode.flag_control_position_enabled && _pos_sp_triplet.current.position_valid) {
 			/* control position */
 			_pos_sp(0) = _pos_sp_triplet.current.x;
@@ -2756,12 +2774,25 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 
 	/* update integrals */
 	if ((_control_mode.flag_control_velocity_enabled || _control_mode.flag_control_rpt_enabled) && !saturation_xy) {
-		_thrust_int(0) += vel_err(0) * _vel_i(0) * _dt;
-		_thrust_int(1) += vel_err(1) * _vel_i(1) * _dt;
+		
+		// zt: use position error for integral computation when using rpt control
+		if (_control_mode.flag_control_rpt_enabled) {
+			_thrust_int(0) += vel_err(0) * _pos_i_rpt(0) * _dt;
+			_thrust_int(1) += vel_err(1) * _pos_i_rpt(1) * _dt;
+		} else if (_control_mode.flag_control_velocity_enabled) {
+			_thrust_int(0) += vel_err(0) * _vel_i(0) * _dt;
+			_thrust_int(1) += vel_err(1) * _vel_i(1) * _dt;
+		}
 	}
 
 	if ((_control_mode.flag_control_climb_rate_enabled || _control_mode.flag_control_rpt_enabled) && !saturation_z) {
-		_thrust_int(2) += vel_err(2) * _vel_i(2) * _dt;
+		
+		// zt: use position error for integral computation when using rpt control
+		if (_control_mode.flag_control_rpt_enabled) {
+		_thrust_int(2) += pos_err(2) * _pos_i_rpt(2) * _dt;
+		} else if (_control_mode.flag_control_velocity_enabled) {
+			_thrust_int(2) += vel_err(2) * _vel_i(2) * _dt;
+		}
 	}
 
 	/* calculate attitude setpoint from thrust vector */
@@ -3289,6 +3320,18 @@ MulticopterPositionControl::task_main()
 				_local_pos_sp.vx = _vel_sp(0);
 				_local_pos_sp.vy = _vel_sp(1);
 				_local_pos_sp.vz = _vel_sp(2);
+				_local_pos_sp.acc_x = _acc_sp(0);
+				_local_pos_sp.acc_y = _acc_sp(1);
+				_local_pos_sp.acc_z = _acc_sp(2);
+
+				/* fill rpt acceleration information*/
+				_rpt_acc.timestamp = hrt_absolute_time();
+				_rpt_acc.ax_sp = _pos_sp_triplet.current.a_x;
+				_rpt_acc.ay_sp = _pos_sp_triplet.current.a_y;
+				_rpt_acc.az_sp = _pos_sp_triplet.current.a_z; /*zt: Todo: check if this isnegative sign?*/
+				_rpt_acc.ax = _local_pos.ax;
+				_rpt_acc.ay = _local_pos.ay;
+				_rpt_acc.az = _local_pos.az;
 
 				/* publish local position setpoint */
 				if (_local_pos_sp_pub != nullptr) {
@@ -3296,6 +3339,12 @@ MulticopterPositionControl::task_main()
 
 				} else {
 					_local_pos_sp_pub = orb_advertise(ORB_ID(vehicle_local_position_setpoint), &_local_pos_sp);
+				}
+
+				if(_rpt_acc_pub != nullptr){
+					orb_publish(ORB_ID(rpt_acceleration), _rpt_acc_pub, &_rpt_acc);
+				} else {
+					_rpt_acc_pub = orb_advertise(ORB_ID(rpt_acceleration), &_rpt_acc);
 				}
 
 			} else {

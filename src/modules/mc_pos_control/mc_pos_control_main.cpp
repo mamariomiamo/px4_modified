@@ -2548,7 +2548,7 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 						_pos_sp_triplet.current.acceleration_valid;
 
 	/* reset integrals if needed */
-	if (_control_mode.flag_control_climb_rate_enabled) {
+	if (_control_mode.flag_control_climb_rate_enabled || _control_mode.flag_control_rpt_enabled) {
 		if (_reset_int_z) {
 			_reset_int_z = false;
 			_thrust_int(2) = 0.0f;
@@ -2558,7 +2558,7 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 		_reset_int_z = true;
 	}
 
-	if (_control_mode.flag_control_velocity_enabled) {
+	if (_control_mode.flag_control_velocity_enabled || _control_mode.flag_control_rpt_enabled) {
 		if (_reset_int_xy) {
 			_reset_int_xy = false;
 			_thrust_int(0) = 0.0f;
@@ -2609,7 +2609,8 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 			    + _thrust_int - matrix::Vector3f(0.0f, 0.0f, _thr_hover.get());
 	}
 
-	if (!_control_mode.flag_control_velocity_enabled && !_control_mode.flag_control_acceleration_enabled) {
+	if (!_control_mode.flag_control_velocity_enabled && !_control_mode.flag_control_acceleration_enabled &&
+		!_control_mode.flag_control_rpt_enabled) {
 		thrust_sp(0) = 0.0f;
 		thrust_sp(1) = 0.0f;
 	}
@@ -2617,7 +2618,8 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 	// reduce thrust in early landing detection states to check if the vehicle still moves
 	landdetection_thrust_limit(thrust_sp);
 
-	if (!_control_mode.flag_control_climb_rate_enabled && !_control_mode.flag_control_acceleration_enabled) {
+	if (!_control_mode.flag_control_climb_rate_enabled && !_control_mode.flag_control_acceleration_enabled && 
+		!_control_mode.flag_control_rpt_enabled ) {
 		thrust_sp(2) = 0.0f;
 	}
 
@@ -2658,7 +2660,8 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 		saturation_z = vel_err(2) > 0.0f ? true : saturation_z;
 	}
 
-	if (_control_mode.flag_control_velocity_enabled || _control_mode.flag_control_acceleration_enabled) {
+	if (_control_mode.flag_control_velocity_enabled || _control_mode.flag_control_acceleration_enabled ||
+		_control_mode.flag_control_rpt_enabled) {
 
 		/* limit max tilt */
 		if (thr_min >= 0.0f && tilt_max < M_PI_F / 2.0f - 0.05f) {
@@ -2752,17 +2755,17 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 	_att_sp.thrust = math::max(thrust_body_z, thr_min);
 
 	/* update integrals */
-	if (_control_mode.flag_control_velocity_enabled && !saturation_xy) {
+	if ((_control_mode.flag_control_velocity_enabled || _control_mode.flag_control_rpt_enabled) && !saturation_xy) {
 		_thrust_int(0) += vel_err(0) * _vel_i(0) * _dt;
 		_thrust_int(1) += vel_err(1) * _vel_i(1) * _dt;
 	}
 
-	if (_control_mode.flag_control_climb_rate_enabled && !saturation_z) {
+	if ((_control_mode.flag_control_climb_rate_enabled || _control_mode.flag_control_rpt_enabled) && !saturation_z) {
 		_thrust_int(2) += vel_err(2) * _vel_i(2) * _dt;
 	}
 
 	/* calculate attitude setpoint from thrust vector */
-	if (_control_mode.flag_control_velocity_enabled || _control_mode.flag_control_acceleration_enabled) {
+	if (_control_mode.flag_control_velocity_enabled || _control_mode.flag_control_acceleration_enabled || _control_mode.flag_control_rpt_enabled) {
 		/* desired body_z axis = -normalize(thrust_vector) */
 		matrix::Vector3f body_x;
 		matrix::Vector3f body_y;

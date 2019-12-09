@@ -1500,7 +1500,13 @@ MulticopterPositionControl::control_non_manual()
 
 		_att_sp.timestamp = hrt_absolute_time();
 
-	} else {
+	} 
+	else if (_pos_sp_triplet.current.valid
+	    && _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_RPT){
+			// Skip position loop and velocity loop;
+			calculate_thrust_setpoint();
+		}
+	else {
 		control_position();
 	}
 }
@@ -1534,7 +1540,7 @@ MulticopterPositionControl::control_offboard()
 				_run_alt_control = false;
 				//_reset_pos_sp = true;
 				//_reset_alt_sp = true;
-
+				return;
 		} else if (_control_mode.flag_control_position_enabled && _pos_sp_triplet.current.position_valid) {
 			/* control position */
 			_pos_sp(0) = _pos_sp_triplet.current.x;

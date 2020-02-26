@@ -921,7 +921,8 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 		bool is_idle_sp = (bool)(set_position_target_local_ned.type_mask & 0x4000);
 		//zt: make use of the last 16th bit for rpt control
 		//(RPT): u =  e_v * k_e + integral + e_p * k_p + acc_sp 
-		bool is_rpt_sp = (bool)(set_position_target_local_ned.type_mask & 0x8000); 
+		bool is_rpt_sp = (bool)(set_position_target_local_ned.type_mask & 0x8000);
+		offboard_control_mode.using_rpt = is_rpt_sp; 
 
 		offboard_control_mode.timestamp = hrt_absolute_time();
 

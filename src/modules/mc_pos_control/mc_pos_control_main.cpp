@@ -2617,7 +2617,7 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 		acc_dot_temp = constrain_ref(acc_dot_temp, _jerk_rpt * 1.2f);
 		_acc_sp_smoothened(2) = _acc_sp_smoothened(2) + acc_dot_temp * _dt;
 
-		thrust_sp = vel_err.emult(_vel_p_rpt) + _thrust_int + pos_err.emult(_pos_p_rpt) + _acc_sp_smoothened - matrix::Vector3f(0.0f, 0.0f, _thr_hover.get());
+		thrust_sp = vel_err.emult(_vel_p_rpt) + _thrust_int + pos_err.emult(_pos_p_rpt) + _acc_sp_smoothened/20.0 - matrix::Vector3f(0.0f, 0.0f, _thr_hover.get());
 
 	} else if (_control_mode.flag_control_acceleration_enabled && _pos_sp_triplet.current.acceleration_valid) {
 		thrust_sp = matrix::Vector3f(_pos_sp_triplet.current.a_x, _pos_sp_triplet.current.a_y, _pos_sp_triplet.current.a_z);

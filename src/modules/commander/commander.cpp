@@ -3437,6 +3437,7 @@ set_control_mode()
 		control_mode.flag_control_velocity_enabled = false;
 		control_mode.flag_control_acceleration_enabled = false;
 		control_mode.flag_control_termination_enabled = false;
+		control_mode.flag_control_rpt_enabled = false;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_STAB:
@@ -3451,6 +3452,7 @@ set_control_mode()
 		control_mode.flag_control_velocity_enabled = false;
 		control_mode.flag_control_acceleration_enabled = false;
 		control_mode.flag_control_termination_enabled = false;
+		control_mode.flag_control_rpt_enabled = false;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_RATTITUDE:
@@ -3465,6 +3467,7 @@ set_control_mode()
 		control_mode.flag_control_velocity_enabled = false;
 		control_mode.flag_control_acceleration_enabled = false;
 		control_mode.flag_control_termination_enabled = false;
+		control_mode.flag_control_rpt_enabled = false;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_ALTCTL:
@@ -3479,6 +3482,7 @@ set_control_mode()
 		control_mode.flag_control_velocity_enabled = false;
 		control_mode.flag_control_acceleration_enabled = false;
 		control_mode.flag_control_termination_enabled = false;
+		control_mode.flag_control_rpt_enabled = false;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_POSCTL:
@@ -3493,12 +3497,14 @@ set_control_mode()
 		control_mode.flag_control_velocity_enabled = !status.in_transition_mode;
 		control_mode.flag_control_acceleration_enabled = false;
 		control_mode.flag_control_termination_enabled = false;
+		control_mode.flag_control_rpt_enabled = false;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_RTL:
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_RCRECOVER:
 		/* override is not ok for the RTL and recovery mode */
 		control_mode.flag_external_manual_override_ok = false;
+		control_mode.flag_control_rpt_enabled = false;
 
 	/* fallthrough */
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
@@ -3520,6 +3526,7 @@ set_control_mode()
 		control_mode.flag_control_velocity_enabled = !status.in_transition_mode;
 		control_mode.flag_control_acceleration_enabled = false;
 		control_mode.flag_control_termination_enabled = false;
+		control_mode.flag_control_rpt_enabled = false;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_LANDGPSFAIL:
@@ -3534,6 +3541,7 @@ set_control_mode()
 		control_mode.flag_control_velocity_enabled = false;
 		control_mode.flag_control_acceleration_enabled = false;
 		control_mode.flag_control_termination_enabled = false;
+		control_mode.flag_control_rpt_enabled = false;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_ACRO:
@@ -3548,6 +3556,7 @@ set_control_mode()
 		control_mode.flag_control_velocity_enabled = false;
 		control_mode.flag_control_acceleration_enabled = false;
 		control_mode.flag_control_termination_enabled = false;
+		control_mode.flag_control_rpt_enabled = false;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_DESCEND:
@@ -3563,6 +3572,7 @@ set_control_mode()
 		control_mode.flag_control_altitude_enabled = false;
 		control_mode.flag_control_climb_rate_enabled = true;
 		control_mode.flag_control_termination_enabled = false;
+		control_mode.flag_control_rpt_enabled = false;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_TERMINATION:
@@ -3578,6 +3588,7 @@ set_control_mode()
 		control_mode.flag_control_altitude_enabled = false;
 		control_mode.flag_control_climb_rate_enabled = false;
 		control_mode.flag_control_termination_enabled = true;
+		control_mode.flag_control_rpt_enabled = false;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_OFFBOARD:

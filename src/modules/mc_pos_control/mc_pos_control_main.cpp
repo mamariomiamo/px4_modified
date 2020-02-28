@@ -1551,6 +1551,24 @@ MulticopterPositionControl::control_offboard()
 				_acc_sp(1) = _pos_sp_triplet.current.a_y;
 				_acc_sp(2) = _pos_sp_triplet.current.a_z; /*zt: Todo: check if this isnegative sign?*/
 
+				if (_pos_sp_triplet.current.yaw_valid) {
+					_att_sp.yaw_body = _pos_sp_triplet.current.yaw;
+
+				} else if (_pos_sp_triplet.current.yawspeed_valid) {
+					float yaw_target = wrap_pi(_att_sp.yaw_body + _pos_sp_triplet.current.yawspeed * _dt);
+					float yaw_offs = wrap_pi(yaw_target - _yaw);
+					const float yaw_rate_max = (_man_yaw_max < _global_yaw_max) ? _man_yaw_max : _global_yaw_max;
+					const float yaw_offset_max = yaw_rate_max / _mc_att_yaw_p.get();
+
+					// If the yaw offset became too big for the system to track stop
+					// shifting it, only allow if it would make the offset smaller again.
+					if (fabsf(yaw_offs) < yaw_offset_max ||
+						(_pos_sp_triplet.current.yawspeed > 0 && yaw_offs < 0) ||
+						(_pos_sp_triplet.current.yawspeed < 0 && yaw_offs > 0)) {
+						_att_sp.yaw_body = yaw_target;
+					}
+				}
+
 				/**zt: TODO: check if these flags are necessary**/
 				_run_pos_control = false;
 				_run_alt_control = false;

@@ -2795,8 +2795,8 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 		
 		// zt: use position error for integral computation when using rpt control
 		if (_control_mode.flag_control_rpt_enabled) {
-			_thrust_int(0) += vel_err(0) * _pos_i_rpt(0) * _dt;
-			_thrust_int(1) += vel_err(1) * _pos_i_rpt(1) * _dt;
+			_thrust_int(0) += pos_err(0) * _pos_i_rpt(0) * _dt;
+			_thrust_int(1) += pos_err(1) * _pos_i_rpt(1) * _dt;
 		} else if (_control_mode.flag_control_velocity_enabled) {
 			_thrust_int(0) += vel_err(0) * _vel_i(0) * _dt;
 			_thrust_int(1) += vel_err(1) * _vel_i(1) * _dt;

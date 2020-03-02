@@ -586,7 +586,6 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 			/* also go into failsafe if just datalink is lost, and we're actually in air */
 			set_link_loss_nav_state(status, armed, status_flags, internal_state, data_link_loss_act,
 						vehicle_status_s::NAVIGATION_STATE_AUTO_RTGS);
-
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, reason_no_datalink);
 
 		} else if (rc_lost && !data_link_loss_act_configured && is_armed) {
@@ -690,8 +689,11 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 
 	case commander_state_s::MAIN_STATE_OFFBOARD:
 
+		/*zt: failsafe check before enter offboard state*/
 		/* require offboard control, otherwise stay where you are */
-		if (status_flags.offboard_control_signal_lost && !status->rc_signal_lost) {
+		if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true)){
+			//zt: nothing to do -everything done in check_invalid_pos_nav_state
+		} else if (status_flags.offboard_control_signal_lost && !status->rc_signal_lost) {
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, reason_no_offboard);
 
 			if (status_flags.offboard_control_loss_timeout && offb_loss_rc_act < 6 && offb_loss_rc_act >= 0) {

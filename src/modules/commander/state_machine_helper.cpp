@@ -693,7 +693,7 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 		/* require offboard control, otherwise stay where you are */
 		if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true)){
 			//zt: nothing to do -everything done in check_invalid_pos_nav_state
-		} else if (status_flags.offboard_control_signal_lost && !status->rc_signal_lost) {
+		} else if (status_flags.offboard_control_signal_lost && status_flags.offboard_control_loss_timeout && !status->rc_signal_lost) { //zt: add status_flags.offboard_control_loss_timeout flag to follow 1.11 logic
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, reason_no_offboard);
 
 			if (status_flags.offboard_control_loss_timeout && offb_loss_rc_act < 6 && offb_loss_rc_act >= 0) {
@@ -741,7 +741,7 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 				}
 			}
 
-		} else if (status_flags.offboard_control_signal_lost && status->rc_signal_lost) {
+		} else if (status_flags.offboard_control_signal_lost && status_flags.offboard_control_loss_timeout && status->rc_signal_lost) { //zt: add status_flags.offboard_control_loss_timeout flag to follow 1.11 logic
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, reason_no_rc_and_no_offboard);
 
 			if (status_flags.offboard_control_loss_timeout && offb_loss_act < 3 && offb_loss_act >= 0) {

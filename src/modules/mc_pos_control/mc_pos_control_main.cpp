@@ -2635,7 +2635,15 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 		acc_dot_temp = constrain_ref(acc_dot_temp, _jerk_rpt * 1.2f);
 		_acc_sp_smoothened(2) = _acc_sp_smoothened(2) + acc_dot_temp * _dt;
 
-		thrust_sp = vel_err.emult(_vel_p_rpt) + _thrust_int + pos_err.emult(_pos_p_rpt) + _acc_sp_smoothened/20.0 - matrix::Vector3f(0.0f, 0.0f, _thr_hover.get());
+		//rough aerodynamic force compensation control effort:
+		matrix::Vector3f thrust_com;
+		thrust_com(0) = _vel_sp(0) * _vel_sp(0)*0.007f* math::sign(_vel_sp(0));
+		thrust_com(1) = _vel_sp(1) * _vel_sp(1)*0.007f* math::sign(_vel_sp(1));
+		// thrust_com(0) = 0.0f;
+		// thrust_com(1) = 0.0f;
+		thrust_com(2) = 0.0f;
+
+		thrust_sp = vel_err.emult(_vel_p_rpt) + _thrust_int + pos_err.emult(_pos_p_rpt) + _acc_sp_smoothened/20.0 - matrix::Vector3f(0.0f, 0.0f, _thr_hover.get()) + thrust_com;
 
 	} else if (_control_mode.flag_control_acceleration_enabled && _pos_sp_triplet.current.acceleration_valid) {
 		thrust_sp = matrix::Vector3f(_pos_sp_triplet.current.a_x, _pos_sp_triplet.current.a_y, _pos_sp_triplet.current.a_z);
@@ -2795,8 +2803,10 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 		
 		// zt: use position error for integral computation when using rpt control
 		if (_control_mode.flag_control_rpt_enabled) {
-			_thrust_int(0) += pos_err(0) * _pos_i_rpt(0) * _dt;
-			_thrust_int(1) += pos_err(1) * _pos_i_rpt(1) * _dt;
+			// _thrust_int(0) += pos_err(0) * _pos_i_rpt(0) * _dt;
+			// _thrust_int(1) += pos_err(1) * _pos_i_rpt(1) * _dt;
+			_thrust_int(0) += vel_err(0) * _vel_i(0) * _dt;
+			_thrust_int(1) += vel_err(1) * _vel_i(1) * _dt;
 		} else if (_control_mode.flag_control_velocity_enabled) {
 			_thrust_int(0) += vel_err(0) * _vel_i(0) * _dt;
 			_thrust_int(1) += vel_err(1) * _vel_i(1) * _dt;
@@ -2807,7 +2817,8 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 		
 		// zt: use position error for integral computation when using rpt control
 		if (_control_mode.flag_control_rpt_enabled) {
-		_thrust_int(2) += pos_err(2) * _pos_i_rpt(2) * _dt;
+		// _thrust_int(2) += pos_err(2) * _pos_i_rpt(2) * _dt;
+			_thrust_int(2) += vel_err(2) * _vel_i(2) * _dt;
 		} else if (_control_mode.flag_control_velocity_enabled) {
 			_thrust_int(2) += vel_err(2) * _vel_i(2) * _dt;
 		}

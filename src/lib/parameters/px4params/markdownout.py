@@ -4,7 +4,7 @@ import codecs
 class MarkdownTablesOutput():
     def __init__(self, groups):
         result = ("# Parameter Reference\n"
-                  "> **Note** **This list is auto-generated from the source code** and contains the most recent parameter documentation.\n"
+                  "> **Note** **This list is auto-generated from the source code** (using `make parameters_metadata`) and contains the most recent parameter documentation.\n"
                   "\n")
         for group in groups:
             result += '## %s\n\n' % group.GetName()
@@ -17,14 +17,7 @@ class MarkdownTablesOutput():
             if len(scope_set)==1:
                 result+='\nThe module where these parameters are defined is: *%s*.\n\n' %  list(scope_set)[0]
             
-            
-            result += '<table style="width: 100%; table-layout:fixed; font-size:1.5rem; overflow: auto; display:block;">\n'
-            result += ' <colgroup><col style="width: 23%"><col style="width: 46%"><col style="width: 11%"><col style="width: 11%"><col style="width: 9%"></colgroup>\n'
-            result += ' <thead>\n'
-            result += '   <tr><th>Name</th><th>Description</th><th>Min > Max (Incr.)</th><th>Default</th><th>Units</th></tr>\n'
-            result += ' </thead>\n'
-            result += '<tbody>\n'
-            
+
             for param in group.GetParams():
                 code = param.GetName()
                 name = param.GetFieldValue("short_desc") or ''
@@ -33,7 +26,7 @@ class MarkdownTablesOutput():
                 max_val = param.GetFieldValue("max") or ''
                 increment = param.GetFieldValue("increment") or ''
                 def_val = param.GetDefault() or ''
-                unit = param.GetFieldValue("unit") or ''
+                unit = param.GetFieldValue("unit") or 'NA'
                 type = param.GetType()
                 reboot_required = param.GetFieldValue("reboot_required") or ''
                 #board = param.GetFieldValue("board") or '' ## Disabled as no board values are defined in any parameters!
@@ -51,52 +44,68 @@ class MarkdownTablesOutput():
                     if not max_val:
                         max_val='?'
                     max_min_combined+='%s > %s ' % (min_val, max_val)
+                else: 
+                    max_min_combined+= 'NA'
                 if increment:
                     max_min_combined+='(%s)' % increment
 
                 if long_desc is not '':
-                    long_desc = '<p><strong>Comment:</strong> %s</p>' % long_desc
+                    long_desc = '**Comment:** %s\n\n' % long_desc
 
                 if name == code:
                     name = ""
-                code='<strong id="%s">%s</strong>' % (code, code)
+                code='**%s**' % (code)
 
                 if reboot_required:
-                    reboot_required='<p><b>Reboot required:</b> %s</p>\n' % reboot_required
+                    reboot_required='**Reboot required:** %s \n\n' % reboot_required
                 
                 scope=''
                 if not len(scope_set)==1 or len(scope_set)==0:
                     scope = param.GetFieldValue("scope") or ''
                     if scope:
-                        scope='<p><b>Module:</b> %s</p>\n' % scope
+                        scope='**Module:** %s\n\n' % scope
 
 
                 enum_codes=param.GetEnumCodes() or '' # Gets numerical values for parameter.
                 enum_output=''
                 # Format codes and their descriptions for display. 
                 if enum_codes:
-                    enum_output+='<strong>Values:</strong><ul>'
+                    enum_output+='**Values:**\n'
                     enum_codes=sorted(enum_codes,key=float)
                     for item in enum_codes:
-                        enum_output+='\n<li><strong>%s:</strong> %s</li> \n' % (item, param.GetEnumValue(item))
-                    enum_output+='</ul>\n'
+                        enum_output+='\n     * **%s**: %s \n' % (item, param.GetEnumValue(item))
+                    enum_output+='\n'
                     
 
                 bitmask_list=param.GetBitmaskList() #Gets bitmask values for parameter
                 bitmask_output=''
                 #Format bitmask values
                 if bitmask_list:
-                    bitmask_output+='<strong>Bitmask:</strong><ul>'
+                    bitmask_output+='**Bitmask:**\n\n'
                     for bit in bitmask_list:
                         bit_text = param.GetBitmaskBit(bit)
-                        bitmask_output+='  <li><strong>%s:</strong> %s</li> \n' % (bit, bit_text)
-                    bitmask_output+='</ul>\n'
+                        bitmask_output+='    * **%s**: %s \n\n' % (bit, bit_text)
+                    # bitmask_output+='\n'
 
                     
-                result += '<tr>\n <td style="vertical-align: top;">%s (%s)</td>\n <td style="vertical-align: top;"><p>%s</p>%s %s %s %s %s</td>\n <td style="vertical-align: top;">%s</td>\n <td style="vertical-align: top;">%s </td>\n <td style="vertical-align: top;">%s</td>\n</tr>\n' % (code,type,name, long_desc, enum_output, bitmask_output, reboot_required, scope, max_min_combined,def_val,unit)
-
-            #Close the table.
-            result += '</tbody></table>\n\n'
+                # result += '%s (%s)\n\nDescription: %s %s %s %s %s %s \n\nMin > Max (Incr.): %s \n\n Default:%s \n\nUnits: %s\n\n' % (code,type,name, long_desc, enum_output, bitmask_output, reboot_required, scope, max_min_combined,def_val,unit)
+                result += '* %s (%s)\n\n' % (code,type)
+                result += '    %s \n\n' % (name)
+                if long_desc:
+                    result += '    %s' % (long_desc)
+                if enum_output:
+                    result += '    %s' % (enum_output)
+                if bitmask_output:
+                    result += '    %s' % (bitmask_output)
+                if reboot_required:
+                    result += '    %s' % (reboot_required)
+                if scope:
+                    result += '    %s' % (scope)
+           
+                result += '    **Min > Max (Incr.)**: %s \n\n' % (max_min_combined)
+                result += '    **Default Value**: %s \n\n' % (def_val)
+                result += '    **Unit**: %s \n\n' % (unit)
+                
 
         self.output = result
 

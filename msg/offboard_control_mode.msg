@@ -11,3 +11,4 @@ bool ignore_position
 bool ignore_velocity
 bool ignore_acceleration_force
 bool ignore_alt_hold
+bool using_rpt # zt: this is added to see if rpt setpoints are used

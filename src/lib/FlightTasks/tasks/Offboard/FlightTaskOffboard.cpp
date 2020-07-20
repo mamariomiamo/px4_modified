@@ -154,6 +154,29 @@ bool FlightTaskOffboard::update()
 		return true;
 	}
 
+	// RPT
+	// zt: safety flag to see if the setpoints are safe to use for rpt
+	bool rpt_sp_valid = _sub_triplet_setpoint.get().current.position_valid &&
+						_sub_triplet_setpoint.get().current.velocity_valid &&
+						_sub_triplet_setpoint.get().current.acceleration_valid;
+	
+	// zt: see if the setpoints we received are meant for using RPT control and whether the setpoints are valid for rpt
+	if (_sub_triplet_setpoint.get().current.type == position_setpoint_s::SETPOINT_TYPE_RPT && rpt_sp_valid){
+		_position_setpoint(0) = _sub_triplet_setpoint.get().current.x;
+		_position_setpoint(1) = _sub_triplet_setpoint.get().current.y;
+		_position_setpoint(2) = _sub_triplet_setpoint.get().current.z;
+		_velocity_setpoint(0) = _sub_triplet_setpoint.get().current.vx;
+		_velocity_setpoint(1) = _sub_triplet_setpoint.get().current.vy;
+		_velocity_setpoint(2) = _sub_triplet_setpoint.get().current.vz;
+		_acceleration_setpoint(0) = _sub_triplet_setpoint.get().current.a_x;
+		_acceleration_setpoint(1) = _sub_triplet_setpoint.get().current.a_y;
+		_acceleration_setpoint(2) = _sub_triplet_setpoint.get().current.a_z;
+
+		//yaw setpoints are already handled above 
+
+		return true;
+	}
+
 	// Possible inputs:
 	// 1. position setpoint
 	// 2. position setpoint + velocity setpoint (velocity used as feedforward)

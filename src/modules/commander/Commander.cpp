@@ -3129,12 +3129,14 @@ Commander::update_control_mode()
 		control_mode.flag_control_manual_enabled = true;
 		control_mode.flag_control_rates_enabled = stabilization_required();
 		control_mode.flag_control_attitude_enabled = stabilization_required();
+		control_mode.flag_control_rpt_enabled = false; //zt: set control rpt flag to false
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_STAB:
 		control_mode.flag_control_manual_enabled = true;
 		control_mode.flag_control_rates_enabled = true;
 		control_mode.flag_control_attitude_enabled = true;
+		control_mode.flag_control_rpt_enabled = false; //zt: set control rpt flag to false
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_RATTITUDE:
@@ -3142,6 +3144,7 @@ Commander::update_control_mode()
 		control_mode.flag_control_rates_enabled = true;
 		control_mode.flag_control_attitude_enabled = true;
 		control_mode.flag_control_rattitude_enabled = true;
+		control_mode.flag_control_rpt_enabled = false; //zt: set control rpt flag to false
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_ALTCTL:
@@ -3150,6 +3153,7 @@ Commander::update_control_mode()
 		control_mode.flag_control_attitude_enabled = true;
 		control_mode.flag_control_altitude_enabled = true;
 		control_mode.flag_control_climb_rate_enabled = true;
+		control_mode.flag_control_rpt_enabled = false; //zt: set control rpt flag to false
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_POSCTL:
@@ -3160,12 +3164,14 @@ Commander::update_control_mode()
 		control_mode.flag_control_climb_rate_enabled = true;
 		control_mode.flag_control_position_enabled = !status.in_transition_mode;
 		control_mode.flag_control_velocity_enabled = !status.in_transition_mode;
+		control_mode.flag_control_rpt_enabled = false; //zt: set control rpt flag to false
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_RTL:
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_RCRECOVER:
 		/* override is not ok for the RTL and recovery mode */
 		control_mode.flag_external_manual_override_ok = false;
+		control_mode.flag_control_rpt_enabled = false; //zt: set control rpt flag to false
 
 	/* fallthrough */
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
@@ -3183,17 +3189,20 @@ Commander::update_control_mode()
 		control_mode.flag_control_climb_rate_enabled = true;
 		control_mode.flag_control_position_enabled = !status.in_transition_mode;
 		control_mode.flag_control_velocity_enabled = !status.in_transition_mode;
+		control_mode.flag_control_rpt_enabled = false; //zt: set control rpt flag to false
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_LANDGPSFAIL:
 		control_mode.flag_control_rates_enabled = true;
 		control_mode.flag_control_attitude_enabled = true;
 		control_mode.flag_control_climb_rate_enabled = true;
+		control_mode.flag_control_rpt_enabled = false; //zt: set control rpt flag to false
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_ACRO:
 		control_mode.flag_control_manual_enabled = true;
 		control_mode.flag_control_rates_enabled = true;
+		control_mode.flag_control_rpt_enabled = false; //zt: set control rpt flag to false
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_DESCEND:
@@ -3201,11 +3210,13 @@ Commander::update_control_mode()
 		control_mode.flag_control_rates_enabled = true;
 		control_mode.flag_control_attitude_enabled = true;
 		control_mode.flag_control_climb_rate_enabled = true;
+		control_mode.flag_control_rpt_enabled = false; //zt: set control rpt flag to false
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_TERMINATION:
 		/* disable all controllers on termination */
 		control_mode.flag_control_termination_enabled = true;
+		control_mode.flag_control_rpt_enabled = false; //zt: set control rpt flag to false
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_OFFBOARD: {
@@ -3214,6 +3225,8 @@ Commander::update_control_mode()
 
 			control_mode.flag_control_offboard_enabled = true;
 
+			control_mode.flag_control_rpt_enabled = offboard_control_mode.using_rpt; // zt: prepare control mode RPT flag
+																					 // zt: when using RPT, acc flag is false
 			/*
 			 * The control flags depend on what is ignored according to the offboard control mode topic
 			 * Inner loop flags (e.g. attitude) also depend on outer loop ignore flags (e.g. position)
@@ -3242,6 +3255,7 @@ Commander::update_control_mode()
 			control_mode.flag_control_rattitude_enabled = false;
 
 			control_mode.flag_control_acceleration_enabled = !offboard_control_mode.ignore_acceleration_force &&
+					!offboard_control_mode.using_rpt && //make sure this acc flag is false when rpt is used.
 					!status.in_transition_mode;
 
 			control_mode.flag_control_velocity_enabled = (!offboard_control_mode.ignore_velocity ||

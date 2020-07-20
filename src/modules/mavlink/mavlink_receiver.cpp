@@ -773,6 +773,10 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 		bool is_land_sp = (bool)(set_position_target_local_ned.type_mask & 0x2000);
 		bool is_loiter_sp = (bool)(set_position_target_local_ned.type_mask & 0x3000);
 		bool is_idle_sp = (bool)(set_position_target_local_ned.type_mask & 0x4000);
+		//zt: make use of the last 16th bit to indicate RPT control
+		//(RPT): u =  e_v * k_e + integral + e_p * k_p + acc_sp		
+		bool is_rpt_sp = (bool)(set_position_target_local_ned.type_mask & 0X8000);
+		offboard_control_mode.using_rpt = is_rpt_sp; // zt: update offboard_control_mode rpt field.
 
 		offboard_control_mode.timestamp = hrt_absolute_time();
 		_offboard_control_mode_pub.publish(offboard_control_mode);
@@ -812,6 +816,9 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 
 					} else if (is_idle_sp) {
 						pos_sp_triplet.current.type = position_setpoint_s::SETPOINT_TYPE_IDLE;
+
+					} else if (is_rpt_sp){
+						pos_sp_triplet.current.type = position_setpoint_s::SETPOINT_TYPE_RPT; //zt: check if we are using RPT setpoints and update the SETPOINT_TYPE_RPT accordingly
 
 					} else {
 						pos_sp_triplet.current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;

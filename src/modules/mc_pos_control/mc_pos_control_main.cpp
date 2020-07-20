@@ -782,7 +782,8 @@ MulticopterPositionControl::start_flight_task()
 		_control_mode.flag_control_position_enabled ||
 		_control_mode.flag_control_climb_rate_enabled ||
 		_control_mode.flag_control_velocity_enabled ||
-		_control_mode.flag_control_acceleration_enabled)) {
+		_control_mode.flag_control_acceleration_enabled ||
+		_control_mode.flag_control_rpt_enabled)) {
 
 		should_disable_task = false;
 		FlightTaskError error = _flight_tasks.switchTask(FlightTaskIndex::Offboard);

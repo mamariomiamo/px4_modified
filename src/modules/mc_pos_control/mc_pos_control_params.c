@@ -771,3 +771,83 @@ PARAM_DEFINE_FLOAT(MPC_SPOOLUP_TIME, 1.0f);
  * @group Mission
  */
 PARAM_DEFINE_INT32(MPC_YAW_MODE, 0);
+
+// zt: following parameters are relevant for RPT control design
+/**
+ * Proportional gain for horizontal velocity error when use RPT control
+ *
+ * @min 0.06
+ * @max 0.15
+ * @decimal 2
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(MPC_XY_VEL_P_RPT, 0.0886f);
+
+/**
+ * Proportional gain for horizontal position error when use RPT control
+ *
+ * @min 0.0
+ * @max 2.0
+ * @decimal 2
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(MPC_XY_P_RPT, 0.0969f);
+
+/**
+ * Integral gain for horizontal position error when use RPT control
+ *
+ * @min 0.0
+ * @max 2.0
+ * @decimal 2
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(MPC_XY_I_RPT, 0.0252f);
+
+/**
+ * Proportional gain for vertical velocity error when use RPT control
+ *
+ * @min 0.06
+ * @max 0.20
+ * @decimal 2
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(MPC_Z_VEL_P_RPT, 0.1875f);
+
+/**
+ * Integral gain for vertical position error when use RPT control
+ *
+ * @min 0.0
+ * @max 2.0
+ * @decimal 2
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(MPC_Z_I_RPT, 0.05f);
+
+/**
+ * Proportional gain for vertical position error when use RPT control
+ *
+ * @min 0.0
+ * @max 2.0
+ * @decimal 2
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(MPC_Z_P_RPT, 0.1875f);
+
+/**
+ * TODO: modify into something more meaningful to rpt
+ * 
+ * Maximum jerk in manual controlled mode for BRAKING to zero.
+ * If this value is below MPC_JERK_MIN, the acceleration limit in xy and z
+ * is MPC_ACC_HOR_MAX and MPC_ACC_UP_MAX respectively instantaneously when the
+ * user demands brake (=zero stick input).
+ * Otherwise the acceleration limit increases from current acceleration limit
+ * towards MPC_ACC_HOR_MAX/MPC_ACC_UP_MAX with jerk limit
+ *
+ * @unit m/s/s/s
+ * @min 0.0
+ * @max 15.0
+ * @increment 1
+ * @decimal 2
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(MPC_JERK_MAX_RPT, 0.6f);

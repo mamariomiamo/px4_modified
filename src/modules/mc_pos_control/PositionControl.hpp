@@ -43,6 +43,8 @@
 #include <uORB/topics/vehicle_local_position_setpoint.h>
 #include <uORB/topics/vehicle_constraints.h>
 #include <px4_module_params.h>
+#include <uORB/Subscription.hpp> //zt: added for RPT control
+#include <uORB/topics/vehicle_control_mode.h> //zt: added for vehicle control mode subscription for RPT
 #pragma once
 
 struct PositionControlStates {
@@ -204,6 +206,7 @@ private:
 
 	void _positionController(); /** applies the P-position-controller */
 	void _velocityController(const float &dt); /** applies the PID-velocity-controller */
+	void _rptController(const float &dt); /** zt: applies the RPT control algorithm*/
 	void _setCtrlFlag(bool value); /**< set control-loop flags (only required for logging) */
 
 	matrix::Vector3f _pos{}; /**< MC position */
@@ -222,6 +225,9 @@ private:
 	bool _skip_controller{false}; /**< skips position/velocity controller. true for stabilized mode */
 	bool _ctrl_pos[3] = {true, true, true}; /**< True if the control-loop for position was used */
 	bool _ctrl_vel[3] = {true, true, true}; /**< True if the control-loop for velocity was used */
+	vehicle_control_mode_s	_control_mode{};		/**< vehicle control mode, zt: added for RPT position control */
+	uORB::Subscription _control_mode_sub{ORB_ID(vehicle_control_mode)};		/**< vehicle control mode subscription, zt: added for RPT position control */
+	matrix::Vector3f _acc_sp_smoothened{}; /**< zt: added to make sure acceleration setpoint is smooth*/
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MPC_THR_MAX>) _param_mpc_thr_max,
@@ -242,6 +248,13 @@ private:
 		(ParamFloat<px4::params::MPC_XY_P>) _param_mpc_xy_p,
 		(ParamFloat<px4::params::MPC_XY_VEL_P>) _param_mpc_xy_vel_p,
 		(ParamFloat<px4::params::MPC_XY_VEL_I>) _param_mpc_xy_vel_i,
-		(ParamFloat<px4::params::MPC_XY_VEL_D>) _param_mpc_xy_vel_d
+		(ParamFloat<px4::params::MPC_XY_VEL_D>) _param_mpc_xy_vel_d,
+		(ParamFloat<px4::params::MPC_XY_VEL_P_RPT>) _param_mpc_xy_vel_p_rpt, /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_XY_P_RPT>) _param_mpc_xy_p_rpt,		  /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_XY_I_RPT>) _param_mpc_xy_i_rpt,		  /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_Z_VEL_P_RPT>) _param_mpc_z_vel_p_rpt, /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_Z_P_RPT>) _param_mpc_z_p_rpt,		  /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_Z_I_RPT>) _param_mpc_z_i_rpt,		  /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_JERK_MAX_RPT>) _param_mpc_max_jerk_rpt		  /**zt: used to generate thrust setpoint with RPT control**/
 	)
 };

@@ -85,7 +85,9 @@ bool PositionControl::updateSetpoint(const vehicle_local_position_setpoint_s &se
 
 void PositionControl::generateThrustYawSetpoint(const float dt)
 {
-	if (_skip_controller) {
+	_control_mode_sub.update(&_control_mode);
+
+	if (_skip_controller && !_control_mode.flag_control_rpt_enabled) {
 
 		// Already received a valid thrust set-point.
 		// Limit the thrust vector.
@@ -102,6 +104,11 @@ void PositionControl::generateThrustYawSetpoint(const float dt)
 		_pos_sp = _pos;
 		_vel_sp = _vel;
 		_acc_sp = _acc;
+
+	} else if (_control_mode.flag_control_rpt_enabled) {
+
+		// if rpt control flag is set, we will skip position and velocity control and run RPT controller
+		_rptController(dt);
 
 	} else {
 		_positionController();
@@ -210,6 +217,34 @@ bool PositionControl::_interfaceMapping()
 	}
 
 	return !(failsafe);
+}
+
+void PositionControl::_rptController(const float &dt)
+{
+	// Generate desired thrust setpoint.
+	// RPT control algorithm
+	// u_des = vel_err * k_v + integral + pos_err * k_p + acc_sp
+
+	const Vector3f pos_err = _pos_sp - _pos;
+	const Vector3f vel_err = _vel_sp - _vel;
+
+	float acc_dot_temp;
+	acc_dot_temp = (_acc_sp(0) - _acc_sp_smoothened(0)) / dt;
+	acc_dot_temp = math::constrain(acc_dot_temp, _param_mpc_max_jerk_rpt.get() * -1.2f, _param_mpc_max_jerk_rpt.get() * 1.2f);
+	_acc_sp_smoothened(0) = _acc_sp_smoothened(0) + acc_dot_temp * dt;
+
+	acc_dot_temp = (_acc_sp(1) - _acc_sp_smoothened(1)) / dt;
+	acc_dot_temp = math::constrain(acc_dot_temp, _param_mpc_max_jerk_rpt.get() * -1.2f, _param_mpc_max_jerk_rpt.get() * 1.2f);
+	_acc_sp_smoothened(1) = _acc_sp_smoothened(1) + acc_dot_temp * dt;
+
+	acc_dot_temp = (_acc_sp(2) - _acc_sp_smoothened(2)) / dt;
+	acc_dot_temp = math::constrain(acc_dot_temp, _param_mpc_max_jerk_rpt.get() * -1.2f, _param_mpc_max_jerk_rpt.get() * 1.2f);
+	_acc_sp_smoothened(2) = _acc_sp_smoothened(2) + acc_dot_temp * dt;
+
+	_thr_sp = vel_err.emult(Vector3f(_param_mpc_xy_vel_p_rpt.get(), _param_mpc_xy_vel_p_rpt.get(), _param_mpc_z_vel_p_rpt.get()))
+		  + pos_err.emult(Vector3f(_param_mpc_xy_p_rpt.get(), _param_mpc_xy_p_rpt.get(), _param_mpc_z_p_rpt.get()))
+		  + _acc_sp_smoothened/20.0 + _thr_int + Vector3f(0.0f, 0.0f, _param_mpc_thr_hover.get());
+
 }
 
 void PositionControl::_positionController()

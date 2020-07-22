@@ -241,9 +241,42 @@ void PositionControl::_rptController(const float &dt)
 	acc_dot_temp = math::constrain(acc_dot_temp, _param_mpc_max_jerk_rpt.get() * -1.2f, _param_mpc_max_jerk_rpt.get() * 1.2f);
 	_acc_sp_smoothened(2) = _acc_sp_smoothened(2) + acc_dot_temp * dt;
 
+	//zt: tuning of MPC_THR_HOVER is needed to achieve small steady state error
 	_thr_sp = vel_err.emult(Vector3f(_param_mpc_xy_vel_p_rpt.get(), _param_mpc_xy_vel_p_rpt.get(), _param_mpc_z_vel_p_rpt.get()))
 		  + pos_err.emult(Vector3f(_param_mpc_xy_p_rpt.get(), _param_mpc_xy_p_rpt.get(), _param_mpc_z_p_rpt.get()))
 		  + _acc_sp_smoothened/20.0 + _thr_int + Vector3f(0.0f, 0.0f, _param_mpc_thr_hover.get());
+
+	// The Thrust limits are negated and swapped due to NED-frame.
+	float uMax = -_param_mpc_thr_min.get();
+	float uMin = -_param_mpc_thr_max.get();
+
+	// make sure there's always enough thrust vector length to infer the attitude
+	uMax = math::min(uMax, -10e-4f);
+	// Apply Anti-Windup in D-direction.
+	bool stop_integral_D = (_thr_sp(2) >= uMax && vel_err(2) >= 0.0f) ||
+			       (_thr_sp(2) <= uMin && vel_err(2) <= 0.0f);
+
+	if (!stop_integral_D) {
+		_thr_int(2) += pos_err(2) * _param_mpc_z_i_rpt.get() * dt;
+
+		// limit thrust integral
+		_thr_int(2) = math::min(fabsf(_thr_int(2)), _param_mpc_thr_max.get()) * math::sign(_thr_int(2));
+	}
+
+	// Saturate thrust setpoint in D-direction.
+	_thr_sp(2) = math::constrain(_thr_sp(2), uMin, uMax);
+
+	// Use tracking Anti-Windup for NE-direction: during saturation, the integrator is used to unsaturate the output
+	// see Anti-Reset Windup for PID controllers, L.Rundqwist, 1990
+	float arw_gain = 2.f / _param_mpc_xy_p_rpt.get();
+
+	Vector2f pos_err_lim;
+	pos_err_lim(0) = pos_err(0) - (_thr_int(0) - _thr_sp(0)) * arw_gain;
+	pos_err_lim(1) = pos_err(1) - (_thr_int(1) - _thr_sp(1)) * arw_gain;
+
+	// Update integral
+	_thr_int(0) += _param_mpc_xy_i_rpt.get() * pos_err_lim(0) * dt;
+	_thr_int(1) += _param_mpc_xy_i_rpt.get() * pos_err_lim(1) * dt;
 
 }
 

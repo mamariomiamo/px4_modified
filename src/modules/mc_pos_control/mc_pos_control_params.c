@@ -71,7 +71,7 @@ PARAM_DEFINE_FLOAT(MPC_THR_MIN, 0.12f);
  * @increment 0.01
  * @group Multicopter Position Control
  */
-PARAM_DEFINE_FLOAT(MPC_THR_HOVER, 0.5f);
+PARAM_DEFINE_FLOAT(MPC_THR_HOVER, 0.45f);
 
 /**
  * Thrust curve in Manual Mode

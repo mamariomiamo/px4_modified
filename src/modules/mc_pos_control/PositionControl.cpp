@@ -111,6 +111,7 @@ void PositionControl::generateThrustYawSetpoint(const float dt)
 		_rptController(dt);
 
 	} else {
+		_was_rpt_control = false;
 		_positionController();
 		_velocityController(dt);
 	}
@@ -129,9 +130,8 @@ bool PositionControl::_interfaceMapping()
 	//               reference is thrust-setpoint -> position, velocity, position-/velocity-setpoint = 0
 	for (int i = 0; i <= 2; i++) {
 
-		if (PX4_ISFINITE(_pos_sp(i))) {
+		if (PX4_ISFINITE(_pos_sp(i)) && !_was_rpt_control) {
 			// Position control is required
-
 			if (!PX4_ISFINITE(_vel_sp(i))) {
 				// Velocity is not used as feedforward term.
 				_vel_sp(i) = 0.0f;
@@ -145,7 +145,7 @@ bool PositionControl::_interfaceMapping()
 				failsafe = true;
 			}
 
-		} else if (PX4_ISFINITE(_vel_sp(i))) {
+		} else if (PX4_ISFINITE(_vel_sp(i)) && !_was_rpt_control) {
 
 			// Velocity controller is active without position control.
 			// Set integral states and setpoints to 0
@@ -160,7 +160,8 @@ bool PositionControl::_interfaceMapping()
 				failsafe = true;
 			}
 
-		} else if (PX4_ISFINITE(_thr_sp(i))) {
+
+		} else if (PX4_ISFINITE(_thr_sp(i)) && _was_rpt_control/*&_control_mode.flag_control_rpt_enabled*/) {
 
 			// Thrust setpoint was generated from sticks directly.
 			// Set all integral states and setpoints to 0
@@ -173,6 +174,10 @@ bool PositionControl::_interfaceMapping()
 			// Don't require velocity derivative.
 			_vel_dot(i) = 0.0f;
 
+		} else if (_was_rpt_control){
+			if (PX4_ISFINITE(_pos_sp(i)) & PX4_ISFINITE(_vel_sp(i)) & PX4_ISFINITE(_acc_sp(i))){
+				failsafe = false;
+			}
 		} else {
 			// nothing is valid. do failsafe
 			failsafe = true;
@@ -278,6 +283,8 @@ void PositionControl::_rptController(const float &dt)
 	_thr_int(0) += _param_mpc_xy_i_rpt.get() * pos_err_lim(0) * dt;
 	_thr_int(1) += _param_mpc_xy_i_rpt.get() * pos_err_lim(1) * dt;
 
+	_was_rpt_control = true;
+
 }
 
 void PositionControl::_positionController()
@@ -322,7 +329,6 @@ void PositionControl::_velocityController(const float &dt)
 	// - the desired thrust in NE-direction is limited by the thrust excess after
 	// 	 consideration of the desired thrust in D-direction. In addition, the thrust in
 	// 	 NE-direction is also limited by the maximum tilt.
-
 	const Vector3f vel_err = _vel_sp - _vel;
 
 	// Consider thrust in D-direction.

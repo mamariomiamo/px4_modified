@@ -42,6 +42,7 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
 #include <uORB/topics/vehicle_constraints.h>
+#include <uORB/topics/vehicle_status.h> //zt: added to fix land logic
 #include <px4_module_params.h>
 #include <uORB/Subscription.hpp> //zt: added for RPT control
 #include <uORB/topics/vehicle_control_mode.h> //zt: added for vehicle control mode subscription for RPT
@@ -203,6 +204,7 @@ private:
 	 * @return true if mapping succeeded.
 	 */
 	bool _interfaceMapping();
+	bool _was_rpt_control=false;
 
 	void _positionController(); /** applies the P-position-controller */
 	void _velocityController(const float &dt); /** applies the PID-velocity-controller */
@@ -225,8 +227,10 @@ private:
 	bool _skip_controller{false}; /**< skips position/velocity controller. true for stabilized mode */
 	bool _ctrl_pos[3] = {true, true, true}; /**< True if the control-loop for position was used */
 	bool _ctrl_vel[3] = {true, true, true}; /**< True if the control-loop for velocity was used */
-	vehicle_control_mode_s	_control_mode{};		/**< vehicle control mode, zt: added for RPT position control */
+	vehicle_control_mode_s	_control_mode{};		/**< zt: added for rpt vehicle control mode, zt: added for RPT position control */
+	vehicle_status_s _vstatus{};		/**< zt: added for rpt for land vehicle status */
 	uORB::Subscription _control_mode_sub{ORB_ID(vehicle_control_mode)};		/**< vehicle control mode subscription, zt: added for RPT position control */
+	uORB::Subscription _vstatus_sub{ORB_ID(vehicle_status)};		/**< vehicle status subscription zt: added to solve land logic*/
 	matrix::Vector3f _acc_sp_smoothened{}; /**< zt: added to make sure acceleration setpoint is smooth*/
 
 	DEFINE_PARAMETERS(

@@ -621,7 +621,7 @@ MulticopterPositionControl::Run()
 			constraints.speed_up = _takeoff.updateRamp(_dt, constraints.speed_up);
 
 			//zt: do not do smooth takeoff is we are using RPT control
-			if (_takeoff.getTakeoffState() < TakeoffState::rampup && !PX4_ISFINITE(setpoint.thrust[2]) && !(_control_mode.flag_control_rpt_enabled)) {
+			if (_takeoff.getTakeoffState() < TakeoffState::rampup && !PX4_ISFINITE(setpoint.thrust[2]) && !(_control_mode.flag_control_rpt_enabled) && (_vehicle_status.nav_state != vehicle_status_s::NAVIGATION_STATE_AUTO_LAND)) {
 				// we are not flying yet and need to avoid any corrections
 				reset_setpoint_to_nan(setpoint);
 				setpoint.thrust[0] = setpoint.thrust[1] = setpoint.thrust[2] = 0.0f;

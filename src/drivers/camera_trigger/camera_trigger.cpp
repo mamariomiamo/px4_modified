@@ -73,7 +73,7 @@
 #include "interfaces/src/gpio.h"
 #include "interfaces/src/pwm.h"
 #include "interfaces/src/seagull_map2.h"
-#define DEBUG
+// #define DEBUG
 
 extern "C" __EXPORT int camera_trigger_main(int argc, char *argv[]);
 
@@ -530,7 +530,10 @@ CameraTrigger::RunOnce()
 	bool pause_state = _trigger_paused;
 
 	unsigned cmd_result = vehicle_command_s::VEHICLE_CMD_RESULT_TEMPORARILY_REJECTED;
+
+	#ifdef DEBUG
 	uint64_t timestamponeshot=0;
+	#endif
 
 		if (cmd.command == vehicle_command_s::VEHICLE_CMD_DO_DIGICAM_CONTROL) {
 
@@ -544,7 +547,9 @@ CameraTrigger::RunOnce()
 			if (commandParamToInt((float)cmd.param5) == 1) {
 				// Schedule shot
 				_one_shot = true;
-				 timestamponeshot= hrt_absolute_time();
+				#ifdef DEBUG
+				timestamponeshot= hrt_absolute_time();
+				#endif
 			}
 
 			cmd_result = vehicle_command_s::VEHICLE_CMD_RESULT_ACCEPTED;
@@ -734,30 +739,26 @@ CameraTrigger::Run()
 	if(_cmd_sub_fd == -1){
 		_cmd_sub_fd =  orb_subscribe(ORB_ID(vehicle_command));
 	}
-	orb_set_interval(_cmd_sub_fd, 1);
+	// orb_set_interval(_cmd_sub_fd, 1);
 
 
 	px4_pollfd_struct_t fds[] = {
    	 { .fd = _cmd_sub_fd,   .events = POLLIN },
 	};
 
-	int poll_ret = px4_poll(fds, 1, 10); //timeout for 10 milliseocnds
+	int poll_ret = px4_poll(fds, 1, 100); //timeout for 100 milliseocnds
 	if (poll_ret > 0) {
 		// timestamp_after_poll_ret = hrt_absolute_time();
 		if (fds[0].revents & POLLIN) {
 			/* obtained data for the first file descriptor */
 
 			//checking we have the most updated topic before copying
-			bool updated;
-			orb_check(_cmd_sub_fd, &updated);
-			if(updated){   //if a new topic is not published, go back to waiting for interrupt
-				while(updated){
+			bool updated = true;
+			while(updated){   //if a new topic is not published, go back to waiting for interrupt
 				orb_copy(ORB_ID(vehicle_command), _cmd_sub_fd, &cmd);
 				orb_check(_cmd_sub_fd, &updated);
-				}
-				RunOnce();
 			}
-
+			RunOnce();
 
 		}
 

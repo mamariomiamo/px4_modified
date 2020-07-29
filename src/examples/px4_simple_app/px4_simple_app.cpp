@@ -71,11 +71,28 @@ int px4_simple_app_main(int argc, char *argv[])
 	PX4_INFO("Hello Sky!");
 	/* trigger subscription updated */
 
-	int _trigger_sub =  orb_subscribe(ORB_ID(camera_trigger));
+	struct camera_trigger_s trig;
 
-	// "px4_pollfd_struct_t fds[1] = {};
-	// fds[0].fd = _trigger_sub;
-	// fds[0].events = POLLIN;"
+	int _trigger_sub =  orb_subscribe(ORB_ID(camera_trigger));
+	/* If there were any publications of the topic prior to the subscription,
+	 * an orb_check right after orb_subscribe will return true.*/
+
+	// this block of code clear any messages published before the subscription
+	{
+		bool updated;
+		orb_check(_trigger_sub, &updated);
+		while(updated)
+		{
+			orb_check(_trigger_sub, &updated);
+			orb_copy(ORB_ID(camera_trigger), _trigger_sub, &trig);
+		}
+
+	}
+
+
+
+
+
 	/*try to trigger camera*/
 	px4_pollfd_struct_t fds[] = {
    	 { .fd = _trigger_sub,   .events = POLLIN },
@@ -88,17 +105,12 @@ int px4_simple_app_main(int argc, char *argv[])
 	cmd.param5 = 1;
 
 
+	timestamp_before_publishing= hrt_absolute_time();
+	orb_publish(ORB_ID(vehicle_command), veh_trig, &cmd);
+	timestamp_after_publishing= hrt_absolute_time();
+
+
 	while(true) {
-
-
-		timestamp_before_publishing= hrt_absolute_time();
-
-
-		orb_publish(ORB_ID(vehicle_command), veh_trig, &cmd);
-
-		timestamp_after_publishing= hrt_absolute_time();
-		// PX4_INFO("timestamp_before_publishing: %llu ",timestamp_before_publishing);
-		// PX4_INFO("timestamp_after_publishing: %llu ",timestamp_after_publishing);
 
 		/* wait for sensor update of 1 file descriptor for 1000 ms (1 second) */
 		int poll_ret = px4_poll(fds, 1, 1000);
@@ -107,22 +119,27 @@ int px4_simple_app_main(int argc, char *argv[])
 
 		if (poll_ret == 0) {
 			/* this means none of our providers is giving us data */
-			// PX4_ERR("Got no data within a second");
-
+			PX4_ERR("Got no data within a second");
 		}
 		else {
 			if (fds[0].revents & POLLIN) {
 				/* obtained data for the first file descriptor */
-				struct camera_trigger_s trig;
+
 				/* copy sensors raw data into local buffer */
-				bool updated = true;
+				bool updated;
+				orb_check(_trigger_sub, &updated);
+
+				// false alarm
+				if (!updated) continue;
+
 				while(updated){
-					orb_check(_trigger_sub, &updated);
 					orb_copy(ORB_ID(camera_trigger), _trigger_sub, &trig);
-					if(timestamp_feedback<timestamp_before_publishing){
-						continue;
-					}
+					orb_check(_trigger_sub, &updated);
+					PX4_INFO("got updated = %llu", trig.timestamp);
 				}
+
+				if (trig.timestamp == 0) continue; // advertising
+
 				timestamp_feedback = trig.timestamp;
 				break;
 			}
@@ -130,12 +147,16 @@ int px4_simple_app_main(int argc, char *argv[])
 	}
 	orb_unadvertise(veh_trig);
 
-	PX4_INFO("delay (ts_feedback-ts_before_publishing) =: %llu ",timestamp_feedback-timestamp_before_publishing);
-
-	#ifdef DEBUG
+	PX4_INFO("timestamp_before_publishing: %llu ",timestamp_before_publishing);
+	PX4_INFO("timestamp_after_publishing: %llu ",timestamp_after_publishing);
 	PX4_INFO("feedback =: %llu ",timestamp_feedback);
-	#endif
 
+	PX4_INFO("delay in us (ts_feedback-ts_before_publishing) =: %llu ",timestamp_feedback-timestamp_before_publishing);
+
+	// double check the feedback should be empty
+	bool updated;
+	orb_check(_trigger_sub, &updated);
+	PX4_INFO("_trigger_sub updated (should be zero) = %d", updated);
 
 	orb_unsubscribe(_trigger_sub);
 	return 0;

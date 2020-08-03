@@ -83,4 +83,7 @@ px4_add_board(
 		ver
 		work_queue
 
+	EXAMPLES
+		px4_simple_app
+
 	)

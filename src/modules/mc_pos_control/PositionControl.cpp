@@ -86,6 +86,11 @@ bool PositionControl::updateSetpoint(const vehicle_local_position_setpoint_s &se
 void PositionControl::generateThrustYawSetpoint(const float dt)
 {
 	_control_mode_sub.update(&_control_mode);
+	_sub_triplet_setpoint.update();
+	if(_control_mode.flag_control_offboard_enabled){
+		printf("offboard enabled\n");
+
+	}
 
 	if (_skip_controller && !_control_mode.flag_control_rpt_enabled) {
 
@@ -105,15 +110,19 @@ void PositionControl::generateThrustYawSetpoint(const float dt)
 		_vel_sp = _vel;
 		_acc_sp = _acc;
 
-	} else if (_control_mode.flag_control_rpt_enabled) {
+	} else if (/*_sub_triplet_setpoint.get().current.type == position_setpoint_s::SETPOINT_TYPE_RPT*/ _control_mode.flag_control_rpt_enabled) {
 
 		// if rpt control flag is set, we will skip position and velocity control and run RPT controller
 		_rptController(dt);
+
+	} else if (_control_mode.flag_control_offboard_enabled){
+		printf("PositionControl Offb\n");
 
 	} else {
 		_was_rpt_control = false;
 		_positionController();
 		_velocityController(dt);
+		printf("normal PID, thr_sp2 is %f\n",(double)_thr_sp(2));
 	}
 }
 
@@ -249,7 +258,7 @@ void PositionControl::_rptController(const float &dt)
 	//zt: tuning of MPC_THR_HOVER is needed to achieve small steady state error
 	_thr_sp = vel_err.emult(Vector3f(_param_mpc_xy_vel_p_rpt.get(), _param_mpc_xy_vel_p_rpt.get(), _param_mpc_z_vel_p_rpt.get()))
 		  + pos_err.emult(Vector3f(_param_mpc_xy_p_rpt.get(), _param_mpc_xy_p_rpt.get(), _param_mpc_z_p_rpt.get()))
-		  + _acc_sp_smoothened/20.0 + _thr_int + Vector3f(0.0f, 0.0f, _param_mpc_thr_hover.get());
+		  + _acc_sp_smoothened/20.0 + _thr_int - Vector3f(0.0f, 0.0f, _param_mpc_thr_hover.get());
 
 	// The Thrust limits are negated and swapped due to NED-frame.
 	float uMax = -_param_mpc_thr_min.get();
@@ -268,8 +277,12 @@ void PositionControl::_rptController(const float &dt)
 		_thr_int(2) = math::min(fabsf(_thr_int(2)), _param_mpc_thr_max.get()) * math::sign(_thr_int(2));
 	}
 
+	printf("RPT control, raw thr_sp2 is %f\n",(double)_thr_sp(2));
+
 	// Saturate thrust setpoint in D-direction.
 	_thr_sp(2) = math::constrain(_thr_sp(2), uMin, uMax);
+
+	printf("RPT control, raw2 thr_sp2 is %f\n",(double)_thr_sp(2));
 
 	// Use tracking Anti-Windup for NE-direction: during saturation, the integrator is used to unsaturate the output
 	// see Anti-Reset Windup for PID controllers, L.Rundqwist, 1990

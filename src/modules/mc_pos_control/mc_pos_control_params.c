@@ -49,6 +49,7 @@
  * @decimal 2
  * @increment 0.01
  * @group Multicopter Position Control
+ * zt: this is abit tricky as when we come out from offboard to handover to PID for position control, thrust setpoint will be calculated from this number
  */
 PARAM_DEFINE_FLOAT(MPC_THR_MIN, 0.12f);
 

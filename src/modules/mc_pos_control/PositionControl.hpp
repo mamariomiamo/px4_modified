@@ -46,6 +46,8 @@
 #include <px4_module_params.h>
 #include <uORB/Subscription.hpp> //zt: added for RPT control
 #include <uORB/topics/vehicle_control_mode.h> //zt: added for vehicle control mode subscription for RPT
+#include <uORB/topics/position_setpoint_triplet.h> //zt:
+#include <uORB/topics/position_setpoint.h> //zt:
 #pragma once
 
 struct PositionControlStates {
@@ -231,6 +233,7 @@ private:
 	vehicle_status_s _vstatus{};		/**< zt: added for rpt for land vehicle status */
 	uORB::Subscription _control_mode_sub{ORB_ID(vehicle_control_mode)};		/**< vehicle control mode subscription, zt: added for RPT position control */
 	uORB::Subscription _vstatus_sub{ORB_ID(vehicle_status)};		/**< vehicle status subscription zt: added to solve land logic*/
+	uORB::SubscriptionData<position_setpoint_triplet_s> _sub_triplet_setpoint{ORB_ID(position_setpoint_triplet)};
 	matrix::Vector3f _acc_sp_smoothened{}; /**< zt: added to make sure acceleration setpoint is smooth*/
 
 	DEFINE_PARAMETERS(

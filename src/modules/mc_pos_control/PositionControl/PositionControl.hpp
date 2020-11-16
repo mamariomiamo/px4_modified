@@ -43,6 +43,9 @@
 #include <uORB/topics/vehicle_attitude_setpoint.h>
 #include <uORB/topics/vehicle_constraints.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
+#include <uORB/Subscription.hpp> //zt: added for RPT control
+#include <uORB/topics/vehicle_control_mode.h> //zt: added for vehicle control mode subscription for RPT
+
 
 struct PositionControlStates {
 	matrix::Vector3f position;
@@ -77,6 +80,31 @@ public:
 
 	PositionControl() = default;
 	~PositionControl() = default;
+
+
+	/** zt:
+	 * Set the RPT control position gains
+	 * @param P 3D vector of proportional gains for x,y,z axis
+	 */
+	void setRPTPositionGains(const matrix::Vector3f &P) { _gain_pos_p_rpt = P; } //used in PositionControl.cpp
+
+	/** zt:
+	 * Set the RPT control velocity gains
+	 * @param P 3D vector of proportional gains for x,y,z axis
+	 */
+	void setRPTVelocityGains(const matrix::Vector3f &P) { _gain_vel_p_rpt = P; }
+
+	/** zt:
+	 * Set the RPT control integral gains
+	 * @param P 3D vector of proportional gains for x,y,z axis
+	 */
+	void setRPTIntegralGains(const matrix::Vector3f &I) { _gain_int_rpt = I; }
+
+	/** zt:
+	 * Set the RPT control jerk limit
+	 * @param J 
+	 */
+	void setRPTJerkLimit(const float &J) { _gain_jerk_rpt = J; }
 
 	/**
 	 * Set the position control gains
@@ -184,6 +212,7 @@ private:
 
 	void _positionControl(); ///< Position proportional control
 	void _velocityControl(const float dt); ///< Velocity PID control
+	void _rptController(const float &dt); /** zt: applies the RPT control algorithm*/
 	void _accelerationControl(); ///< Acceleration setpoint processing
 
 	// Gains
@@ -191,6 +220,11 @@ private:
 	matrix::Vector3f _gain_vel_p; ///< Velocity control proportional gain
 	matrix::Vector3f _gain_vel_i; ///< Velocity control integral gain
 	matrix::Vector3f _gain_vel_d; ///< Velocity control derivative gain
+	matrix::Vector3f _gain_pos_p_rpt; ///< zt: rpt control position gains
+	matrix::Vector3f _gain_vel_p_rpt; ///< zt: rpt control velocity gains
+	matrix::Vector3f _gain_int_rpt; ///< zt: rpt control integral gains
+	float _gain_jerk_rpt; ///< zt: rpt control jerk limit
+
 
 	// Limits
 	float _lim_vel_horizontal{}; ///< Horizontal velocity limit with feed forward and position control
@@ -207,6 +241,7 @@ private:
 	matrix::Vector3f _vel; /**< current velocity */
 	matrix::Vector3f _vel_dot; /**< velocity derivative (replacement for acceleration estimate) */
 	matrix::Vector3f _vel_int; /**< integral term of the velocity controller */
+	matrix::Vector3f _thr_int_rpt; /**< zt: integral term for RPT position controller */
 	float _yaw{}; /**< current heading */
 
 	vehicle_constraints_s _constraints{}; /**< variable constraints */
@@ -218,4 +253,11 @@ private:
 	matrix::Vector3f _thr_sp; /**< desired thrust */
 	float _yaw_sp{}; /**< desired heading */
 	float _yawspeed_sp{}; /** desired yaw-speed */
+
+	vehicle_control_mode_s	_control_mode{};		/**< vehicle control mode, zt: added for RPT position control */
+
+	uORB::Subscription _control_mode_sub{ORB_ID(vehicle_control_mode)};		/**< vehicle control mode subscription, zt: added for RPT position control */
+
+	matrix::Vector3f _acc_sp_smoothened{}; /**< zt: added to make sure acceleration setpoint is smooth*/
+
 };

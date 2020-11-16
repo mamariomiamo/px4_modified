@@ -108,28 +108,28 @@ private:
 
 	Takeoff _takeoff; /**< state machine and ramp to bring the vehicle off the ground without jumps */
 
-	uORB::Publication<vehicle_attitude_setpoint_s>	_vehicle_attitude_setpoint_pub;
-	uORB::PublicationQueued<vehicle_command_s> _pub_vehicle_command{ORB_ID(vehicle_command)};	 /**< vehicle command publication */
+	uORB::Publication<vehicle_attitude_setpoint_s> _vehicle_attitude_setpoint_pub;
+	uORB::PublicationQueued<vehicle_command_s> _pub_vehicle_command{ORB_ID(vehicle_command)};/**< vehicle command publication */
 	orb_advert_t _mavlink_log_pub{nullptr};
 
-	uORB::Publication<landing_gear_s>			_landing_gear_pub{ORB_ID(landing_gear)};
-	uORB::Publication<vehicle_local_position_setpoint_s>	_local_pos_sp_pub{ORB_ID(vehicle_local_position_setpoint)};	/**< vehicle local position setpoint publication */
-	uORB::Publication<vehicle_local_position_setpoint_s>	_traj_sp_pub{ORB_ID(trajectory_setpoint)};			/**< trajectory setpoints publication */
+	uORB::Publication<landing_gear_s> _landing_gear_pub{ORB_ID(landing_gear)};
+	uORB::Publication<vehicle_local_position_setpoint_s> _local_pos_sp_pub{ORB_ID(vehicle_local_position_setpoint)}; /**< vehicle local position setpoint publication */
+	uORB::Publication<vehicle_local_position_setpoint_s> _traj_sp_pub{ORB_ID(trajectory_setpoint)};					 /**< trajectory setpoints publication */
 
-	uORB::SubscriptionCallbackWorkItem _local_pos_sub{this, ORB_ID(vehicle_local_position)};	/**< vehicle local position */
+	uORB::SubscriptionCallbackWorkItem _local_pos_sub{this, ORB_ID(vehicle_local_position)}; /**< vehicle local position */
 
-	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};			/**< vehicle status subscription */
-	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};	/**< vehicle land detected subscription */
-	uORB::Subscription _control_mode_sub{ORB_ID(vehicle_control_mode)};		/**< vehicle control mode subscription */
-	uORB::Subscription _parameter_update_sub{ORB_ID(parameter_update)};		/**< notification of parameter updates */
-	uORB::Subscription _home_pos_sub{ORB_ID(home_position)}; 			/**< home position */
+	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};				  /**< vehicle status subscription */
+	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)}; /**< vehicle land detected subscription */
+	uORB::Subscription _control_mode_sub{ORB_ID(vehicle_control_mode)};			  /**< vehicle control mode subscription */
+	uORB::Subscription _parameter_update_sub{ORB_ID(parameter_update)};			  /**< notification of parameter updates */
+	uORB::Subscription _home_pos_sub{ORB_ID(home_position)};					  /**< home position */
 	uORB::Subscription _hover_thrust_estimate_sub{ORB_ID(hover_thrust_estimate)};
 
-	hrt_abstime	_time_stamp_last_loop{0};		/**< time stamp of last loop iteration */
+	hrt_abstime _time_stamp_last_loop{0}; /**< time stamp of last loop iteration */
 
-	int _task_failure_count{0};         /**< counter for task failures */
+	int _task_failure_count{0}; /**< counter for task failures */
 
-	vehicle_status_s 			_vehicle_status{};		/**< vehicle status */
+	vehicle_status_s _vehicle_status{}; /**< vehicle status */
 	/**< vehicle-land-detection: initialze to landed */
 	vehicle_land_detected_s _vehicle_land_detected = {
 		.timestamp = 0,
@@ -140,51 +140,57 @@ private:
 		.landed = true,
 	};
 
-	vehicle_control_mode_s	_control_mode{};		/**< vehicle control mode */
-	vehicle_local_position_s _local_pos{};			/**< vehicle local position */
-	home_position_s	_home_pos{};			/**< home position */
+	vehicle_control_mode_s _control_mode{}; /**< vehicle control mode */
+	vehicle_local_position_s _local_pos{};	/**< vehicle local position */
+	home_position_s _home_pos{};			/**< home position */
 	landing_gear_s _landing_gear{};
 	int8_t _old_landing_gear_position{landing_gear_s::GEAR_KEEP};
 
 	DEFINE_PARAMETERS(
 		// Position Control
-		(ParamFloat<px4::params::MPC_XY_P>) _param_mpc_xy_p,
-		(ParamFloat<px4::params::MPC_Z_P>) _param_mpc_z_p,
-		(ParamFloat<px4::params::MPC_XY_VEL_P_ACC>) _param_mpc_xy_vel_p_acc,
-		(ParamFloat<px4::params::MPC_XY_VEL_I_ACC>) _param_mpc_xy_vel_i_acc,
-		(ParamFloat<px4::params::MPC_XY_VEL_D_ACC>) _param_mpc_xy_vel_d_acc,
-		(ParamFloat<px4::params::MPC_Z_VEL_P_ACC>) _param_mpc_z_vel_p_acc,
-		(ParamFloat<px4::params::MPC_Z_VEL_I_ACC>) _param_mpc_z_vel_i_acc,
-		(ParamFloat<px4::params::MPC_Z_VEL_D_ACC>) _param_mpc_z_vel_d_acc,
-		(ParamFloat<px4::params::MPC_XY_VEL_MAX>) _param_mpc_xy_vel_max,
-		(ParamFloat<px4::params::MPC_Z_VEL_MAX_UP>) _param_mpc_z_vel_max_up,
-		(ParamFloat<px4::params::MPC_Z_VEL_MAX_DN>) _param_mpc_z_vel_max_dn,
-		(ParamFloat<px4::params::MPC_TILTMAX_AIR>) _param_mpc_tiltmax_air,
-		(ParamFloat<px4::params::MPC_THR_HOVER>) _param_mpc_thr_hover,
-		(ParamBool<px4::params::MPC_USE_HTE>) _param_mpc_use_hte,
+		(ParamFloat<px4::params::MPC_XY_P>)_param_mpc_xy_p,
+		(ParamFloat<px4::params::MPC_Z_P>)_param_mpc_z_p,
+		(ParamFloat<px4::params::MPC_XY_VEL_P_ACC>)_param_mpc_xy_vel_p_acc,
+		(ParamFloat<px4::params::MPC_XY_VEL_I_ACC>)_param_mpc_xy_vel_i_acc,
+		(ParamFloat<px4::params::MPC_XY_VEL_D_ACC>)_param_mpc_xy_vel_d_acc,
+		(ParamFloat<px4::params::MPC_Z_VEL_P_ACC>)_param_mpc_z_vel_p_acc,
+		(ParamFloat<px4::params::MPC_Z_VEL_I_ACC>)_param_mpc_z_vel_i_acc,
+		(ParamFloat<px4::params::MPC_Z_VEL_D_ACC>)_param_mpc_z_vel_d_acc,
+		(ParamFloat<px4::params::MPC_XY_VEL_MAX>)_param_mpc_xy_vel_max,
+		(ParamFloat<px4::params::MPC_Z_VEL_MAX_UP>)_param_mpc_z_vel_max_up,
+		(ParamFloat<px4::params::MPC_Z_VEL_MAX_DN>)_param_mpc_z_vel_max_dn,
+		(ParamFloat<px4::params::MPC_TILTMAX_AIR>)_param_mpc_tiltmax_air,
+		(ParamFloat<px4::params::MPC_THR_HOVER>)_param_mpc_thr_hover,
+		(ParamBool<px4::params::MPC_USE_HTE>)_param_mpc_use_hte,
+		(ParamFloat<px4::params::MPC_XY_VEL_P_RPT>)_param_mpc_xy_vel_p_rpt, /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_XY_P_RPT>)_param_mpc_xy_p_rpt, /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_XY_I_RPT>)_param_mpc_xy_i_rpt, /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_Z_VEL_P_RPT>)_param_mpc_z_vel_p_rpt, /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_Z_P_RPT>)_param_mpc_z_p_rpt, /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_Z_I_RPT>)_param_mpc_z_i_rpt, /**zt: used to generate thrust setpoint with RPT control**/
+		(ParamFloat<px4::params::MPC_JERK_MAX_RPT>)_param_mpc_max_jerk_rpt, /**zt: used to generate thrust setpoint with RPT control**/
 
 		// Takeoff / Land
 		(ParamFloat<px4::params::MPC_SPOOLUP_TIME>) _param_mpc_spoolup_time, /**< time to let motors spool up after arming */
-		(ParamFloat<px4::params::MPC_TKO_RAMP_T>) _param_mpc_tko_ramp_t, /**< time constant for smooth takeoff ramp */
-		(ParamFloat<px4::params::MPC_TKO_SPEED>) _param_mpc_tko_speed,
-		(ParamFloat<px4::params::MPC_LAND_SPEED>) _param_mpc_land_speed,
+		(ParamFloat<px4::params::MPC_TKO_RAMP_T>)_param_mpc_tko_ramp_t,		 /**< time constant for smooth takeoff ramp */
+		(ParamFloat<px4::params::MPC_TKO_SPEED>)_param_mpc_tko_speed,
+		(ParamFloat<px4::params::MPC_LAND_SPEED>)_param_mpc_land_speed,
 
-		(ParamFloat<px4::params::MPC_VEL_MANUAL>) _param_mpc_vel_manual,
-		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise,
-		(ParamFloat<px4::params::MPC_LAND_ALT2>) _param_mpc_land_alt2, /**< downwards speed limited below this altitude */
-		(ParamInt<px4::params::MPC_POS_MODE>) _param_mpc_pos_mode,
-		(ParamInt<px4::params::MPC_ALT_MODE>) _param_mpc_alt_mode,
-		(ParamFloat<px4::params::MPC_TILTMAX_LND>) _param_mpc_tiltmax_lnd, /**< maximum tilt for landing and smooth takeoff */
-		(ParamFloat<px4::params::MPC_THR_MIN>) _param_mpc_thr_min,
-		(ParamFloat<px4::params::MPC_THR_MAX>) _param_mpc_thr_max
-	);
+		(ParamFloat<px4::params::MPC_VEL_MANUAL>)_param_mpc_vel_manual,
+		(ParamFloat<px4::params::MPC_XY_CRUISE>)_param_mpc_xy_cruise,
+		(ParamFloat<px4::params::MPC_LAND_ALT2>)_param_mpc_land_alt2, /**< downwards speed limited below this altitude */
+		(ParamInt<px4::params::MPC_POS_MODE>)_param_mpc_pos_mode,
+		(ParamInt<px4::params::MPC_ALT_MODE>)_param_mpc_alt_mode,
+		(ParamFloat<px4::params::MPC_TILTMAX_LND>)_param_mpc_tiltmax_lnd, /**< maximum tilt for landing and smooth takeoff */
+		(ParamFloat<px4::params::MPC_THR_MIN>)_param_mpc_thr_min,
+		(ParamFloat<px4::params::MPC_THR_MAX>)_param_mpc_thr_max);
 
 	control::BlockDerivative _vel_x_deriv; /**< velocity derivative in x */
 	control::BlockDerivative _vel_y_deriv; /**< velocity derivative in y */
 	control::BlockDerivative _vel_z_deriv; /**< velocity derivative in z */
 
-	FlightTasks _flight_tasks; /**< class generating position controller setpoints depending on vehicle task */
-	PositionControl _control; /**< class for core PID position control */
+	FlightTasks _flight_tasks;		 /**< class generating position controller setpoints depending on vehicle task */
+	PositionControl _control;		 /**< class for core PID position control */
 	PositionControlStates _states{}; /**< structure containing vehicle state information for position control */
 
 	hrt_abstime _last_warn = 0; /**< timer when the last warn message was sent out */
@@ -256,7 +262,7 @@ private:
 	 * to true, the failsafe will be initiated immediately.
 	 */
 	void failsafe(const hrt_abstime &now, vehicle_local_position_setpoint_s &setpoint, const PositionControlStates &states,
-		      const bool force, bool warn);
+				  const bool force, bool warn);
 
 	/**
 	 * Reset setpoints to NAN
@@ -274,17 +280,17 @@ private:
 	void send_vehicle_cmd_do(uint8_t nav_state);
 };
 
-MulticopterPositionControl::MulticopterPositionControl(bool vtol) :
-	SuperBlock(nullptr, "MPC"),
-	ModuleParams(nullptr),
-	WorkItem(MODULE_NAME, px4::wq_configurations::nav_and_controllers),
-	_vehicle_attitude_setpoint_pub(vtol ? ORB_ID(mc_virtual_attitude_setpoint) : ORB_ID(vehicle_attitude_setpoint)),
-	_vel_x_deriv(this, "VELD"),
-	_vel_y_deriv(this, "VELD"),
-	_vel_z_deriv(this, "VELD"),
-	_cycle_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle time"))
+MulticopterPositionControl::MulticopterPositionControl(bool vtol) : SuperBlock(nullptr, "MPC"),
+																	ModuleParams(nullptr),
+																	WorkItem(MODULE_NAME, px4::wq_configurations::nav_and_controllers),
+																	_vehicle_attitude_setpoint_pub(vtol ? ORB_ID(mc_virtual_attitude_setpoint) : ORB_ID(vehicle_attitude_setpoint)),
+																	_vel_x_deriv(this, "VELD"),
+																	_vel_y_deriv(this, "VELD"),
+																	_vel_z_deriv(this, "VELD"),
+																	_cycle_perf(perf_alloc(PC_ELAPSED, MODULE_NAME ": cycle time"))
 {
-	if (vtol) {
+	if (vtol)
+	{
 		// if vehicle is a VTOL we want to enable weathervane capabilities
 		_wv_controller = new WeatherVane();
 	}
@@ -303,10 +309,10 @@ MulticopterPositionControl::~MulticopterPositionControl()
 	perf_free(_cycle_perf);
 }
 
-bool
-MulticopterPositionControl::init()
+bool MulticopterPositionControl::init()
 {
-	if (!_local_pos_sub.registerCallback()) {
+	if (!_local_pos_sub.registerCallback())
+	{
 		PX4_ERR("vehicle_local_position callback registration failed!");
 		return false;
 	}
@@ -319,11 +325,11 @@ MulticopterPositionControl::init()
 	return true;
 }
 
-int
-MulticopterPositionControl::parameters_update(bool force)
+int MulticopterPositionControl::parameters_update(bool force)
 {
 	// check for parameter updates
-	if (_parameter_update_sub.updated() || force) {
+	if (_parameter_update_sub.updated() || force)
+	{
 		// clear update
 		parameter_update_s pupdate;
 		_parameter_update_sub.copy(&pupdate);
@@ -332,17 +338,25 @@ MulticopterPositionControl::parameters_update(bool force)
 		ModuleParams::updateParams();
 		SuperBlock::updateParams();
 
-		if (_param_mpc_tiltmax_air.get() > MAX_SAFE_TILT_DEG) {
+		if (_param_mpc_tiltmax_air.get() > MAX_SAFE_TILT_DEG)
+		{
 			_param_mpc_tiltmax_air.set(MAX_SAFE_TILT_DEG);
 			_param_mpc_tiltmax_air.commit();
 			mavlink_log_critical(&_mavlink_log_pub, "Tilt constrained to safe value");
 		}
 
-		if (_param_mpc_tiltmax_lnd.get() > _param_mpc_tiltmax_air.get()) {
+		if (_param_mpc_tiltmax_lnd.get() > _param_mpc_tiltmax_air.get())
+		{
 			_param_mpc_tiltmax_lnd.set(_param_mpc_tiltmax_air.get());
 			_param_mpc_tiltmax_lnd.commit();
 			mavlink_log_critical(&_mavlink_log_pub, "Land tilt has been constrained by max tilt");
 		}
+
+		//zt: Update RPT parameters
+		_control.setRPTPositionGains(Vector3f(_param_mpc_xy_p_rpt.get(), _param_mpc_xy_p_rpt.get(), _param_mpc_z_p_rpt.get()));
+		_control.setRPTVelocityGains(Vector3f(_param_mpc_xy_vel_p_rpt.get(), _param_mpc_xy_vel_p_rpt.get(), _param_mpc_z_vel_p_rpt.get()));
+		_control.setRPTIntegralGains(Vector3f(_param_mpc_xy_i_rpt.get(), _param_mpc_xy_i_rpt.get(), _param_mpc_z_i_rpt.get()));
+		_control.setRPTJerkLimit(_param_mpc_max_jerk_rpt.get());
 
 		_control.setPositionGains(Vector3f(_param_mpc_xy_p.get(), _param_mpc_xy_p.get(), _param_mpc_z_p.get()));
 		_control.setVelocityGains(
@@ -354,27 +368,31 @@ MulticopterPositionControl::parameters_update(bool force)
 		_control.setTiltLimit(M_DEG_TO_RAD_F * _param_mpc_tiltmax_air.get()); // convert to radians!
 
 		// Check that the design parameters are inside the absolute maximum constraints
-		if (_param_mpc_xy_cruise.get() > _param_mpc_xy_vel_max.get()) {
+		if (_param_mpc_xy_cruise.get() > _param_mpc_xy_vel_max.get())
+		{
 			_param_mpc_xy_cruise.set(_param_mpc_xy_vel_max.get());
 			_param_mpc_xy_cruise.commit();
 			mavlink_log_critical(&_mavlink_log_pub, "Cruise speed has been constrained by max speed");
 		}
 
-		if (_param_mpc_vel_manual.get() > _param_mpc_xy_vel_max.get()) {
+		if (_param_mpc_vel_manual.get() > _param_mpc_xy_vel_max.get())
+		{
 			_param_mpc_vel_manual.set(_param_mpc_xy_vel_max.get());
 			_param_mpc_vel_manual.commit();
 			mavlink_log_critical(&_mavlink_log_pub, "Manual speed has been constrained by max speed");
 		}
 
 		if (_param_mpc_thr_hover.get() > _param_mpc_thr_max.get() ||
-		    _param_mpc_thr_hover.get() < _param_mpc_thr_min.get()) {
+			_param_mpc_thr_hover.get() < _param_mpc_thr_min.get())
+		{
 			_param_mpc_thr_hover.set(math::constrain(_param_mpc_thr_hover.get(), _param_mpc_thr_min.get(),
-						 _param_mpc_thr_max.get()));
+													 _param_mpc_thr_max.get()));
 			_param_mpc_thr_hover.commit();
 			mavlink_log_critical(&_mavlink_log_pub, "Hover thrust has been constrained by min/max");
 		}
 
-		if (!_param_mpc_use_hte.get() || !_hover_thrust_initialized) {
+		if (!_param_mpc_use_hte.get() || !_hover_thrust_initialized)
+		{
 			_control.setHoverThrust(_param_mpc_thr_hover.get());
 			_hover_thrust_initialized = true;
 		}
@@ -390,7 +408,8 @@ MulticopterPositionControl::parameters_update(bool force)
 		_takeoff.setTakeoffRampTime(_param_mpc_tko_ramp_t.get());
 		_takeoff.generateInitialRampValue(_param_mpc_z_vel_p_acc.get());
 
-		if (_wv_controller != nullptr) {
+		if (_wv_controller != nullptr)
+		{
 			_wv_controller->update_parameters();
 		}
 	}
@@ -398,29 +417,31 @@ MulticopterPositionControl::parameters_update(bool force)
 	return OK;
 }
 
-void
-MulticopterPositionControl::poll_subscriptions()
+void MulticopterPositionControl::poll_subscriptions()
 {
 	_vehicle_status_sub.update(&_vehicle_status);
 	_vehicle_land_detected_sub.update(&_vehicle_land_detected);
 	_control_mode_sub.update(&_control_mode);
 	_home_pos_sub.update(&_home_pos);
 
-	if (_param_mpc_use_hte.get()) {
+	if (_param_mpc_use_hte.get())
+	{
 		hover_thrust_estimate_s hte;
 
-		if (_hover_thrust_estimate_sub.update(&hte)) {
-			if (hte.valid) {
+		if (_hover_thrust_estimate_sub.update(&hte))
+		{
+			if (hte.valid)
+			{
 				_control.updateHoverThrust(hte.hover_thrust);
 			}
 		}
 	}
 }
 
-void
-MulticopterPositionControl::limit_altitude(vehicle_local_position_setpoint_s &setpoint)
+void MulticopterPositionControl::limit_altitude(vehicle_local_position_setpoint_s &setpoint)
 {
-	if (_vehicle_land_detected.alt_max < 0.0f || !_home_pos.valid_alt || !_local_pos.v_z_valid) {
+	if (_vehicle_land_detected.alt_max < 0.0f || !_home_pos.valid_alt || !_local_pos.v_z_valid)
+	{
 		// there is no altitude limitation present or the required information not available
 		return;
 	}
@@ -428,43 +449,50 @@ MulticopterPositionControl::limit_altitude(vehicle_local_position_setpoint_s &se
 	// maximum altitude == minimal z-value (NED)
 	const float min_z = _home_pos.z + (-_vehicle_land_detected.alt_max);
 
-	if (_states.position(2) < min_z) {
+	if (_states.position(2) < min_z)
+	{
 		// above maximum altitude, only allow downwards flight == positive vz-setpoints (NED)
 		setpoint.z = min_z;
 		setpoint.vz = math::max(setpoint.vz, 0.f);
 	}
 }
 
-void
-MulticopterPositionControl::set_vehicle_states(const float &vel_sp_z)
+void MulticopterPositionControl::set_vehicle_states(const float &vel_sp_z)
 {
-	if (_local_pos.timestamp == 0) {
+	if (_local_pos.timestamp == 0)
+	{
 		return;
 	}
 
 	// only set position states if valid and finite
-	if (PX4_ISFINITE(_local_pos.x) && PX4_ISFINITE(_local_pos.y) && _local_pos.xy_valid) {
+	if (PX4_ISFINITE(_local_pos.x) && PX4_ISFINITE(_local_pos.y) && _local_pos.xy_valid)
+	{
 		_states.position(0) = _local_pos.x;
 		_states.position(1) = _local_pos.y;
-
-	} else {
+	}
+	else
+	{
 		_states.position(0) = _states.position(1) = NAN;
 	}
 
-	if (PX4_ISFINITE(_local_pos.z) && _local_pos.z_valid) {
+	if (PX4_ISFINITE(_local_pos.z) && _local_pos.z_valid)
+	{
 		_states.position(2) = _local_pos.z;
-
-	} else {
+	}
+	else
+	{
 		_states.position(2) = NAN;
 	}
 
-	if (PX4_ISFINITE(_local_pos.vx) && PX4_ISFINITE(_local_pos.vy) && _local_pos.v_xy_valid) {
+	if (PX4_ISFINITE(_local_pos.vx) && PX4_ISFINITE(_local_pos.vy) && _local_pos.v_xy_valid)
+	{
 		_states.velocity(0) = _local_pos.vx;
 		_states.velocity(1) = _local_pos.vy;
 		_states.acceleration(0) = _vel_x_deriv.update(_states.velocity(0));
 		_states.acceleration(1) = _vel_y_deriv.update(_states.velocity(1));
-
-	} else {
+	}
+	else
+	{
 		_states.velocity(0) = _states.velocity(1) = NAN;
 		_states.acceleration(0) = _states.acceleration(1) = NAN;
 		// reset derivatives to prevent acceleration spikes when regaining velocity
@@ -472,10 +500,12 @@ MulticopterPositionControl::set_vehicle_states(const float &vel_sp_z)
 		_vel_y_deriv.reset();
 	}
 
-	if (PX4_ISFINITE(_local_pos.vz) && _local_pos.v_z_valid) {
+	if (PX4_ISFINITE(_local_pos.vz) && _local_pos.v_z_valid)
+	{
 		_states.velocity(2) = _local_pos.vz;
 
-		if (PX4_ISFINITE(vel_sp_z) && fabsf(vel_sp_z) > FLT_EPSILON && PX4_ISFINITE(_local_pos.z_deriv)) {
+		if (PX4_ISFINITE(vel_sp_z) && fabsf(vel_sp_z) > FLT_EPSILON && PX4_ISFINITE(_local_pos.z_deriv))
+		{
 			// A change in velocity is demanded. Set velocity to the derivative of position
 			// because it has less bias but blend it in across the landing speed range
 			float weighting = fminf(fabsf(vel_sp_z) / _param_mpc_land_speed.get(), 1.0f);
@@ -483,25 +513,28 @@ MulticopterPositionControl::set_vehicle_states(const float &vel_sp_z)
 		}
 
 		_states.acceleration(2) = _vel_z_deriv.update(_states.velocity(2));
-
-	} else {
+	}
+	else
+	{
 		_states.velocity(2) = _states.acceleration(2) = NAN;
 		// reset derivative to prevent acceleration spikes when regaining velocity
 		_vel_z_deriv.reset();
 	}
 
-	if (PX4_ISFINITE(_local_pos.heading)) {
+	if (PX4_ISFINITE(_local_pos.heading))
+	{
 		_states.yaw = _local_pos.heading;
 	}
 }
 
-int
-MulticopterPositionControl::print_status()
+int MulticopterPositionControl::print_status()
 {
-	if (_flight_tasks.isAnyTaskActive()) {
+	if (_flight_tasks.isAnyTaskActive())
+	{
 		PX4_INFO("Running, active flight task: %i", _flight_tasks.getActiveTask());
-
-	} else {
+	}
+	else
+	{
 		PX4_INFO("Running, no flight task active");
 	}
 
@@ -510,10 +543,10 @@ MulticopterPositionControl::print_status()
 	return 0;
 }
 
-void
-MulticopterPositionControl::Run()
+void MulticopterPositionControl::Run()
 {
-	if (should_exit()) {
+	if (should_exit())
+	{
 		_local_pos_sub.unregisterCallback();
 		exit_and_cleanup();
 		return;
@@ -521,7 +554,8 @@ MulticopterPositionControl::Run()
 
 	perf_begin(_cycle_perf);
 
-	if (_local_pos_sub.update(&_local_pos)) {
+	if (_local_pos_sub.update(&_local_pos))
+	{
 
 		poll_subscriptions();
 		parameters_update(false);
@@ -538,15 +572,19 @@ MulticopterPositionControl::Run()
 
 		// activate the weathervane controller if required. If activated a flighttask can use it to implement a yaw-rate control strategy
 		// that turns the nose of the vehicle into the wind
-		if (_wv_controller != nullptr) {
+		if (_wv_controller != nullptr)
+		{
 
 			// in manual mode we just want to use weathervane if position is controlled as well
 			// in mission, enabling wv is done in flight task
-			if (_control_mode.flag_control_manual_enabled) {
-				if (_control_mode.flag_control_position_enabled && _wv_controller->weathervane_enabled()) {
+			if (_control_mode.flag_control_manual_enabled)
+			{
+				if (_control_mode.flag_control_position_enabled && _wv_controller->weathervane_enabled())
+				{
 					_wv_controller->activate();
-
-				} else {
+				}
+				else
+				{
 					_wv_controller->deactivate();
 				}
 			}
@@ -556,13 +594,14 @@ MulticopterPositionControl::Run()
 
 		// an update is necessary here because otherwise the takeoff state doesn't get skiped with non-altitude-controlled modes
 		_takeoff.updateTakeoffState(_control_mode.flag_armed, _vehicle_land_detected.landed, false, 10.f,
-					    !_control_mode.flag_control_climb_rate_enabled, time_stamp_now);
+									!_control_mode.flag_control_climb_rate_enabled, time_stamp_now);
 
 		// switch to the required flighttask
 		start_flight_task();
 
 		// check if any task is active
-		if (_flight_tasks.isAnyTaskActive()) {
+		if (_flight_tasks.isAnyTaskActive())
+		{
 			// setpoints and constraints for the position controller from flighttask or failsafe
 			vehicle_local_position_setpoint_s setpoint = FlightTask::empty_setpoint;
 			vehicle_constraints_s constraints = FlightTask::empty_constraints;
@@ -570,12 +609,14 @@ MulticopterPositionControl::Run()
 			_flight_tasks.setYawHandler(_wv_controller);
 
 			// update task
-			if (!_flight_tasks.update()) {
+			if (!_flight_tasks.update())
+			{
 				// FAILSAFE
 				// Task was not able to update correctly. Do Failsafe.
 				failsafe(time_stamp_now, setpoint, _states, false, !was_in_failsafe);
-
-			} else {
+			}
+			else
+			{
 				setpoint = _flight_tasks.getPositionSetpoint();
 				constraints = _flight_tasks.getConstraints();
 
@@ -592,39 +633,45 @@ MulticopterPositionControl::Run()
 
 			// fix to prevent the takeoff ramp to ramp to a too high value or get stuck because of NAN
 			// TODO: this should get obsolete once the takeoff limiting moves into the flight tasks
-			if (!PX4_ISFINITE(constraints.speed_up) || (constraints.speed_up > _param_mpc_z_vel_max_up.get())) {
+			if (!PX4_ISFINITE(constraints.speed_up) || (constraints.speed_up > _param_mpc_z_vel_max_up.get()))
+			{
 				constraints.speed_up = _param_mpc_z_vel_max_up.get();
 			}
 
 			// limit tilt during takeoff ramupup
-			if (_takeoff.getTakeoffState() < TakeoffState::flight) {
+			if (_takeoff.getTakeoffState() < TakeoffState::flight)
+			{
 				constraints.tilt = math::radians(_param_mpc_tiltmax_lnd.get());
 				setpoint.acceleration[2] = NAN;
 			}
 
 			// limit altitude only if local position is valid
-			if (PX4_ISFINITE(_states.position(2))) {
+			if (PX4_ISFINITE(_states.position(2)))
+			{
 				limit_altitude(setpoint);
 			}
 
 			// handle smooth takeoff
 			_takeoff.updateTakeoffState(_control_mode.flag_armed, _vehicle_land_detected.landed, constraints.want_takeoff,
-						    constraints.speed_up, !_control_mode.flag_control_climb_rate_enabled, time_stamp_now);
+										constraints.speed_up, !_control_mode.flag_control_climb_rate_enabled, time_stamp_now);
 			constraints.speed_up = _takeoff.updateRamp(dt, constraints.speed_up);
 
 			const bool not_taken_off = _takeoff.getTakeoffState() < TakeoffState::rampup;
 			const bool flying = _takeoff.getTakeoffState() >= TakeoffState::flight;
 			const bool flying_but_ground_contact = flying && _vehicle_land_detected.ground_contact;
 
-			if (flying) {
+			if (flying)
+			{
 				_control.setThrustLimits(_param_mpc_thr_min.get(), _param_mpc_thr_max.get());
-
-			} else {
+			}
+			else
+			{
 				// allow zero thrust when taking off and landing
 				_control.setThrustLimits(0.f, _param_mpc_thr_max.get());
 			}
 
-			if (not_taken_off || flying_but_ground_contact) {
+			if ((not_taken_off || flying_but_ground_contact) && !(_control_mode.flag_control_rpt_enabled)) //zt: do not do smooth takeoff is we are using RPT control
+			{
 				// we are not flying yet and need to avoid any corrections
 				reset_setpoint_to_nan(setpoint);
 				Vector3f(0.f, 0.f, 100.f).copyTo(setpoint.acceleration); // High downwards acceleration to make sure there's no thrust
@@ -636,7 +683,8 @@ MulticopterPositionControl::Run()
 				_control.resetIntegral();
 			}
 
-			if (not_taken_off) {
+			if (not_taken_off)
+			{
 				// reactivate the task which will reset the setpoint to current state
 				_flight_tasks.reActivate();
 			}
@@ -646,8 +694,10 @@ MulticopterPositionControl::Run()
 			_control.setConstraints(constraints);
 			_control.setInputSetpoint(setpoint);
 
-			if (!_control.update(dt)) {
-				if ((time_stamp_now - _last_warn) > 1_s) {
+			if (!_control.update(dt))
+			{
+				if ((time_stamp_now - _last_warn) > 1_s)
+				{
 					PX4_WARN("invalid setpoints");
 					_last_warn = time_stamp_now;
 				}
@@ -678,7 +728,7 @@ MulticopterPositionControl::Run()
 			// Inform FlightTask about the input and output of the velocity controller
 			// This is used to properly initialize the velocity setpoint when onpening the position loop (position unlock)
 			_flight_tasks.updateVelocityControllerIO(Vector3f(local_pos_sp.vx, local_pos_sp.vy, local_pos_sp.vz),
-					Vector3f(local_pos_sp.acceleration));
+													 Vector3f(local_pos_sp.acceleration));
 
 			vehicle_attitude_setpoint_s attitude_setpoint{};
 			attitude_setpoint.timestamp = time_stamp_now;
@@ -694,16 +744,17 @@ MulticopterPositionControl::Run()
 			_wv_dcm_z_sp_prev = Quatf(attitude_setpoint.q_d).dcm_z();
 
 			// if there's any change in landing gear setpoint publish it
-			if (gear.landing_gear != _old_landing_gear_position
-			    && gear.landing_gear != landing_gear_s::GEAR_KEEP) {
+			if (gear.landing_gear != _old_landing_gear_position && gear.landing_gear != landing_gear_s::GEAR_KEEP)
+			{
 				_landing_gear.timestamp = time_stamp_now;
 				_landing_gear.landing_gear = gear.landing_gear;
 				_landing_gear_pub.publish(_landing_gear);
 			}
 
 			_old_landing_gear_position = gear.landing_gear;
-
-		} else {
+		}
+		else
+		{
 			// reset the numerical derivatives to not generate d term spikes when coming from non-position controlled operation
 			_vel_x_deriv.reset();
 			_vel_y_deriv.reset();
@@ -714,32 +765,36 @@ MulticopterPositionControl::Run()
 	perf_end(_cycle_perf);
 }
 
-void
-MulticopterPositionControl::start_flight_task()
+void MulticopterPositionControl::start_flight_task()
 {
 	bool task_failure = false;
 	bool should_disable_task = true;
 	int prev_failure_count = _task_failure_count;
 
 	// Do not run any flight task for VTOLs in fixed-wing mode
-	if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING) {
+	if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING)
+	{
 		_flight_tasks.switchTask(FlightTaskIndex::None);
 		return;
 	}
 
-	if (_vehicle_status.in_transition_mode) {
+	if (_vehicle_status.in_transition_mode)
+	{
 		should_disable_task = false;
 		FlightTaskError error = _flight_tasks.switchTask(FlightTaskIndex::Transition);
 
-		if (error != FlightTaskError::NoError) {
-			if (prev_failure_count == 0) {
+		if (error != FlightTaskError::NoError)
+		{
+			if (prev_failure_count == 0)
+			{
 				PX4_WARN("Transition activation failed with error: %s", _flight_tasks.errorToString(error));
 			}
 
 			task_failure = true;
 			_task_failure_count++;
-
-		} else {
+		}
+		else
+		{
 			// we want to be in this mode, reset the failure count
 			_task_failure_count = 0;
 		}
@@ -748,226 +803,264 @@ MulticopterPositionControl::start_flight_task()
 	}
 
 	// offboard
-	if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD
-	    && (_control_mode.flag_control_altitude_enabled ||
-		_control_mode.flag_control_position_enabled ||
-		_control_mode.flag_control_climb_rate_enabled ||
-		_control_mode.flag_control_velocity_enabled ||
-		_control_mode.flag_control_acceleration_enabled ||
-		_control_mode.flag_control_rpt_enabled)) {
+	if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD && (_control_mode.flag_control_altitude_enabled ||
+																					 _control_mode.flag_control_position_enabled ||
+																					 _control_mode.flag_control_climb_rate_enabled ||
+																					 _control_mode.flag_control_velocity_enabled ||
+																					 _control_mode.flag_control_acceleration_enabled ||
+																					 _control_mode.flag_control_rpt_enabled))
+	{
 
 		should_disable_task = false;
 		FlightTaskError error = _flight_tasks.switchTask(FlightTaskIndex::Offboard);
 
-		if (error != FlightTaskError::NoError) {
-			if (prev_failure_count == 0) {
+		if (error != FlightTaskError::NoError)
+		{
+			if (prev_failure_count == 0)
+			{
 				PX4_WARN("Offboard activation failed with error: %s", _flight_tasks.errorToString(error));
 			}
 
 			task_failure = true;
 			_task_failure_count++;
-
-		} else {
+		}
+		else
+		{
 			// we want to be in this mode, reset the failure count
 			_task_failure_count = 0;
 		}
 	}
 
 	// Auto-follow me
-	if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET) {
+	if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET)
+	{
 		should_disable_task = false;
 		FlightTaskError error = _flight_tasks.switchTask(FlightTaskIndex::AutoFollowMe);
 
-		if (error != FlightTaskError::NoError) {
-			if (prev_failure_count == 0) {
+		if (error != FlightTaskError::NoError)
+		{
+			if (prev_failure_count == 0)
+			{
 				PX4_WARN("Follow-Me activation failed with error: %s", _flight_tasks.errorToString(error));
 			}
 
 			task_failure = true;
 			_task_failure_count++;
-
-		} else {
+		}
+		else
+		{
 			// we want to be in this mode, reset the failure count
 			_task_failure_count = 0;
 		}
-
-	} else if (_control_mode.flag_control_auto_enabled) {
+	}
+	else if (_control_mode.flag_control_auto_enabled)
+	{
 		// Auto related maneuvers
 		should_disable_task = false;
 		FlightTaskError error = FlightTaskError::NoError;
 
-		error =  _flight_tasks.switchTask(FlightTaskIndex::AutoLineSmoothVel);
+		error = _flight_tasks.switchTask(FlightTaskIndex::AutoLineSmoothVel);
 
-		if (error != FlightTaskError::NoError) {
-			if (prev_failure_count == 0) {
+		if (error != FlightTaskError::NoError)
+		{
+			if (prev_failure_count == 0)
+			{
 				PX4_WARN("Auto activation failed with error: %s", _flight_tasks.errorToString(error));
 			}
 
 			task_failure = true;
 			_task_failure_count++;
-
-		} else {
+		}
+		else
+		{
 			// we want to be in this mode, reset the failure count
 			_task_failure_count = 0;
 		}
-
-	} else if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_DESCEND) {
+	}
+	else if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_DESCEND)
+	{
 
 		// Emergency descend
 		should_disable_task = false;
 		FlightTaskError error = FlightTaskError::NoError;
 
-		error =  _flight_tasks.switchTask(FlightTaskIndex::Descend);
+		error = _flight_tasks.switchTask(FlightTaskIndex::Descend);
 
-		if (error != FlightTaskError::NoError) {
-			if (prev_failure_count == 0) {
+		if (error != FlightTaskError::NoError)
+		{
+			if (prev_failure_count == 0)
+			{
 				PX4_WARN("Descend activation failed with error: %s", _flight_tasks.errorToString(error));
 			}
 
 			task_failure = true;
 			_task_failure_count++;
-
-		} else {
+		}
+		else
+		{
 			// we want to be in this mode, reset the failure count
 			_task_failure_count = 0;
 		}
-
 	}
 
 	// manual position control
-	if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_POSCTL || task_failure) {
+	if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_POSCTL || task_failure)
+	{
 		should_disable_task = false;
 		FlightTaskError error = FlightTaskError::NoError;
 
-		switch (_param_mpc_pos_mode.get()) {
+		switch (_param_mpc_pos_mode.get())
+		{
 		case 1:
-			error =  _flight_tasks.switchTask(FlightTaskIndex::ManualPositionSmooth);
+			error = _flight_tasks.switchTask(FlightTaskIndex::ManualPositionSmooth);
 			break;
 
 		case 3:
-			error =  _flight_tasks.switchTask(FlightTaskIndex::ManualPositionSmoothVel);
+			error = _flight_tasks.switchTask(FlightTaskIndex::ManualPositionSmoothVel);
 			break;
 
 		default:
-			error =  _flight_tasks.switchTask(FlightTaskIndex::ManualPosition);
+			error = _flight_tasks.switchTask(FlightTaskIndex::ManualPosition);
 			break;
 		}
 
-		if (error != FlightTaskError::NoError) {
-			if (prev_failure_count == 0) {
+		if (error != FlightTaskError::NoError)
+		{
+			if (prev_failure_count == 0)
+			{
 				PX4_WARN("Position-Ctrl activation failed with error: %s", _flight_tasks.errorToString(error));
 			}
 
 			task_failure = true;
 			_task_failure_count++;
-
-		} else {
+		}
+		else
+		{
 			check_failure(task_failure, vehicle_status_s::NAVIGATION_STATE_POSCTL);
 			task_failure = false;
 		}
 	}
 
 	// manual altitude control
-	if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ALTCTL || task_failure) {
+	if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ALTCTL || task_failure)
+	{
 		should_disable_task = false;
 		FlightTaskError error = FlightTaskError::NoError;
 
-		switch (_param_mpc_pos_mode.get()) {
+		switch (_param_mpc_pos_mode.get())
+		{
 		case 1:
-			error =  _flight_tasks.switchTask(FlightTaskIndex::ManualAltitudeSmooth);
+			error = _flight_tasks.switchTask(FlightTaskIndex::ManualAltitudeSmooth);
 			break;
 
 		case 3:
-			error =  _flight_tasks.switchTask(FlightTaskIndex::ManualAltitudeSmoothVel);
+			error = _flight_tasks.switchTask(FlightTaskIndex::ManualAltitudeSmoothVel);
 			break;
 
 		default:
-			error =  _flight_tasks.switchTask(FlightTaskIndex::ManualAltitude);
+			error = _flight_tasks.switchTask(FlightTaskIndex::ManualAltitude);
 			break;
 		}
 
-		if (error != FlightTaskError::NoError) {
-			if (prev_failure_count == 0) {
+		if (error != FlightTaskError::NoError)
+		{
+			if (prev_failure_count == 0)
+			{
 				PX4_WARN("Altitude-Ctrl activation failed with error: %s", _flight_tasks.errorToString(error));
 			}
 
 			task_failure = true;
 			_task_failure_count++;
-
-		} else {
+		}
+		else
+		{
 			check_failure(task_failure, vehicle_status_s::NAVIGATION_STATE_ALTCTL);
 			task_failure = false;
 		}
 	}
 
-	if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT) {
+	if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT)
+	{
 		should_disable_task = false;
 	}
 
 	// check task failure
-	if (task_failure) {
+	if (task_failure)
+	{
 
 		// for some reason no flighttask was able to start.
 		// go into failsafe flighttask
 		FlightTaskError error = _flight_tasks.switchTask(FlightTaskIndex::Failsafe);
 
-		if (error != FlightTaskError::NoError) {
+		if (error != FlightTaskError::NoError)
+		{
 			// No task was activated.
 			_flight_tasks.switchTask(FlightTaskIndex::None);
 		}
-
-	} else if (should_disable_task) {
+	}
+	else if (should_disable_task)
+	{
 		_flight_tasks.switchTask(FlightTaskIndex::None);
 	}
 }
 
-void
-MulticopterPositionControl::failsafe(const hrt_abstime &now, vehicle_local_position_setpoint_s &setpoint,
-				     const PositionControlStates &states, const bool force, bool warn)
+void MulticopterPositionControl::failsafe(const hrt_abstime &now, vehicle_local_position_setpoint_s &setpoint,
+										  const PositionControlStates &states, const bool force, bool warn)
 {
 	// do not warn while we are disarmed, as we might not have valid setpoints yet
-	if (!_control_mode.flag_armed) {
+	if (!_control_mode.flag_armed)
+	{
 		warn = false;
 	}
 
 	_failsafe_land_hysteresis.set_state_and_update(true, now);
 
-	if (!_failsafe_land_hysteresis.get_state() && !force) {
+	if (!_failsafe_land_hysteresis.get_state() && !force)
+	{
 		// just keep current setpoint and don't do anything.
-
-	} else {
+	}
+	else
+	{
 		reset_setpoint_to_nan(setpoint);
 
-		if (PX4_ISFINITE(_states.velocity(0)) && PX4_ISFINITE(_states.velocity(1))) {
+		if (PX4_ISFINITE(_states.velocity(0)) && PX4_ISFINITE(_states.velocity(1)))
+		{
 			// don't move along xy
 			setpoint.vx = setpoint.vy = 0.f;
 
-			if (warn) {
+			if (warn)
+			{
 				PX4_WARN("Failsafe: stop and wait");
 			}
-
-		} else {
+		}
+		else
+		{
 			// descend with land speed since we can't stop
 			setpoint.acceleration[0] = setpoint.acceleration[1] = 0.f;
 			setpoint.vz = _param_mpc_land_speed.get();
 
-			if (warn) {
+			if (warn)
+			{
 				PX4_WARN("Failsafe: blind land");
 			}
 		}
 
-		if (PX4_ISFINITE(_states.velocity(2))) {
+		if (PX4_ISFINITE(_states.velocity(2)))
+		{
 			// don't move along z if we can stop in all dimensions
-			if (!PX4_ISFINITE(setpoint.vz)) {
+			if (!PX4_ISFINITE(setpoint.vz))
+			{
 				setpoint.vz = 0.f;
 			}
-
-		} else {
+		}
+		else
+		{
 			// emergency descend with a bit below hover thrust
 			setpoint.vz = NAN;
 			setpoint.acceleration[2] = .3f;
 
-			if (warn) {
+			if (warn)
+			{
 				PX4_WARN("Failsafe: blind descend");
 			}
 		}
@@ -976,8 +1069,7 @@ MulticopterPositionControl::failsafe(const hrt_abstime &now, vehicle_local_posit
 	}
 }
 
-void
-MulticopterPositionControl::reset_setpoint_to_nan(vehicle_local_position_setpoint_s &setpoint)
+void MulticopterPositionControl::reset_setpoint_to_nan(vehicle_local_position_setpoint_s &setpoint)
 {
 	setpoint.x = setpoint.y = setpoint.z = NAN;
 	setpoint.vx = setpoint.vy = setpoint.vz = NAN;
@@ -988,11 +1080,13 @@ MulticopterPositionControl::reset_setpoint_to_nan(vehicle_local_position_setpoin
 
 void MulticopterPositionControl::check_failure(bool task_failure, uint8_t nav_state)
 {
-	if (!task_failure) {
+	if (!task_failure)
+	{
 		// we want to be in this mode, reset the failure count
 		_task_failure_count = 0;
-
-	} else if (_task_failure_count > NUM_FAILURE_TRIES) {
+	}
+	else if (_task_failure_count > NUM_FAILURE_TRIES)
+	{
 		// tell commander to switch mode
 		PX4_WARN("Previous flight task failed, switching to mode %d", nav_state);
 		send_vehicle_cmd_do(nav_state);
@@ -1015,7 +1109,8 @@ void MulticopterPositionControl::send_vehicle_cmd_do(uint8_t nav_state)
 	command.from_external = false;
 
 	// set the main mode
-	switch (nav_state) {
+	switch (nav_state)
+	{
 	case vehicle_status_s::NAVIGATION_STATE_STAB:
 		command.param2 = (float)PX4_CUSTOM_MAIN_MODE_STABILIZED;
 		break;
@@ -1042,23 +1137,28 @@ int MulticopterPositionControl::task_spawn(int argc, char *argv[])
 {
 	bool vtol = false;
 
-	if (argc > 1) {
-		if (strcmp(argv[1], "vtol") == 0) {
+	if (argc > 1)
+	{
+		if (strcmp(argv[1], "vtol") == 0)
+		{
 			vtol = true;
 		}
 	}
 
 	MulticopterPositionControl *instance = new MulticopterPositionControl(vtol);
 
-	if (instance) {
+	if (instance)
+	{
 		_object.store(instance);
 		_task_id = task_id_is_work_queue;
 
-		if (instance->init()) {
+		if (instance->init())
+		{
 			return PX4_OK;
 		}
-
-	} else {
+	}
+	else
+	{
 		PX4_ERR("alloc failed");
 	}
 
@@ -1076,7 +1176,8 @@ int MulticopterPositionControl::custom_command(int argc, char *argv[])
 
 int MulticopterPositionControl::print_usage(const char *reason)
 {
-	if (reason) {
+	if (reason) 
+	{
 		PX4_WARN("%s\n", reason);
 	}
 

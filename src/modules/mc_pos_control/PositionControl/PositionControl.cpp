@@ -111,18 +111,86 @@ void PositionControl::setConstraints(const vehicle_constraints_s &constraints)
 
 bool PositionControl::update(const float dt)
 {
+	_control_mode_sub.update(&_control_mode);
 	// x and y input setpoints always have to come in pairs
-	const bool valid = (PX4_ISFINITE(_pos_sp(0)) == PX4_ISFINITE(_pos_sp(1)))
-			   && (PX4_ISFINITE(_vel_sp(0)) == PX4_ISFINITE(_vel_sp(1)))
-			   && (PX4_ISFINITE(_acc_sp(0)) == PX4_ISFINITE(_acc_sp(1)));
+	const bool valid = (PX4_ISFINITE(_pos_sp(0)) == PX4_ISFINITE(_pos_sp(1))) && (PX4_ISFINITE(_vel_sp(0)) == PX4_ISFINITE(_vel_sp(1))) && (PX4_ISFINITE(_acc_sp(0)) == PX4_ISFINITE(_acc_sp(1)));
 
-	_positionControl();
-	_velocityControl(dt);
+	if (_control_mode.flag_control_rpt_enabled)
+	{
+		// if rpt control flag is set, we will skip position and velocity control and run RPT controller
+		_rptController(dt);
+	}
+	else
+	{
+		_positionControl();
+		_velocityControl(dt);
+	}
 
 	_yawspeed_sp = PX4_ISFINITE(_yawspeed_sp) ? _yawspeed_sp : 0.f;
 	_yaw_sp = PX4_ISFINITE(_yaw_sp) ? _yaw_sp : _yaw; // TODO: better way to disable yaw control
 
 	return valid && _updateSuccessful();
+}
+
+void PositionControl::_rptController(const float &dt) //zt: added position controller using Robust Perfect Tracking control
+
+{
+
+	// Generate desired thrust setpoint.
+	// RPT control algorithm
+	// u_des = vel_err * k_v + integral + pos_err * k_p + acc_sp
+	Vector3f pos_err = _pos_sp - _pos;
+	Vector3f vel_err = _vel_sp - _vel;
+	float acc_dot_temp;
+	acc_dot_temp = (_acc_sp(0) - _acc_sp_smoothened(0)) / dt;
+	acc_dot_temp = math::constrain(acc_dot_temp, _gain_jerk_rpt * -1.2f, _gain_jerk_rpt * 1.2f);
+	_acc_sp_smoothened(0) = _acc_sp_smoothened(0) + acc_dot_temp * dt;
+	acc_dot_temp = (_acc_sp(1) - _acc_sp_smoothened(1)) / dt;
+	acc_dot_temp = math::constrain(acc_dot_temp, _gain_jerk_rpt * -1.2f, _gain_jerk_rpt * 1.2f);
+	_acc_sp_smoothened(1) = _acc_sp_smoothened(1) + acc_dot_temp * dt;
+	acc_dot_temp = (_acc_sp(2) - _acc_sp_smoothened(2)) / dt;
+	acc_dot_temp = math::constrain(acc_dot_temp, _gain_jerk_rpt * -1.2f, _gain_jerk_rpt * 1.2f);
+	_acc_sp_smoothened(2) = _acc_sp_smoothened(2) + acc_dot_temp * dt;	
+
+	_thr_sp = vel_err.emult(_gain_vel_p_rpt) + pos_err.emult(_gain_pos_p_rpt) + _acc_sp_smoothened / 20.0 + _thr_int_rpt - Vector3f(0.0f, 0.0f, _hover_thrust);
+
+	// Integrator anti-windup in vertical direction
+	if ((_thr_sp(2) >= -_lim_thr_min && pos_err(2) >= 0.0f) ||
+		(_thr_sp(2) <= -_lim_thr_max && pos_err(2) <= 0.0f))
+	{
+		pos_err(2) = 0.0f;
+	}
+
+	// Saturate maximal vertical thrust
+	_thr_sp(2) = math::max(_thr_sp(2), -_lim_thr_max);
+
+	// Get allowed horizontal thrust after prioritizing vertical control
+	const float thrust_max_squared = _lim_thr_max * _lim_thr_max;
+	const float thrust_z_squared = _thr_sp(2) * _thr_sp(2);
+	float thrust_max_xy = sqrtf(thrust_max_squared - thrust_z_squared);
+
+	// Saturate thrust in horizontal direction
+	const Vector2f thrust_sp_xy(_thr_sp);
+	const float thrust_sp_xy_norm = thrust_sp_xy.norm();
+
+	if (thrust_sp_xy_norm > thrust_max_xy)
+	{
+		_thr_sp.xy() = thrust_sp_xy / thrust_sp_xy_norm * thrust_max_xy;
+	}
+
+	// Use tracking Anti-Windup for horizontal direction: during saturation, the integrator is used to unsaturate the output
+	// see Anti-Reset Windup for PID controllers, L.Rundqwist, 1990
+	const Vector2f acc_sp_xy_limited = Vector2f(_thr_sp) * (CONSTANTS_ONE_G / _hover_thrust);
+	const float arw_gain = 2.f / _gain_vel_p(0);
+	pos_err.xy() = Vector2f(pos_err) - (arw_gain * (Vector2f(_acc_sp) - acc_sp_xy_limited));
+
+	// Make sure integral doesn't get NAN
+	ControlMath::setZeroIfNanVector3f(pos_err);
+	// Update integral part of velocity control
+	_thr_int_rpt += pos_err.emult(_gain_int_rpt) * dt;
+
+	// limit thrust integral
+	_thr_int_rpt(2) = math::min(fabsf(_thr_int_rpt(2)), CONSTANTS_ONE_G) * sign(_thr_int_rpt(2));
 }
 
 void PositionControl::_positionControl()

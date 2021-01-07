@@ -772,11 +772,11 @@ PARAM_DEFINE_INT32(MPC_YAW_MODE, 0);
  * Proportional gain for horizontal velocity error when use RPT control
  *
  * @min 0.06
- * @max 0.15
+ * @max 0.8
  * @decimal 2
  * @group Multicopter Position Control
  */
-PARAM_DEFINE_FLOAT(MPC_XY_VEL_P_RPT, 0.0886f);
+PARAM_DEFINE_FLOAT(MPC_XY_VEL_P_RPT, 0.5f);
 
 /**
  * Proportional gain for horizontal position error when use RPT control
@@ -786,7 +786,7 @@ PARAM_DEFINE_FLOAT(MPC_XY_VEL_P_RPT, 0.0886f);
  * @decimal 2
  * @group Multicopter Position Control
  */
-PARAM_DEFINE_FLOAT(MPC_XY_P_RPT, 0.0969f);
+PARAM_DEFINE_FLOAT(MPC_XY_P_RPT, 0.30f);
 
 /**
  * Integral gain for horizontal position error when use RPT control
@@ -796,7 +796,7 @@ PARAM_DEFINE_FLOAT(MPC_XY_P_RPT, 0.0969f);
  * @decimal 2
  * @group Multicopter Position Control
  */
-PARAM_DEFINE_FLOAT(MPC_XY_I_RPT, 0.0252f);
+PARAM_DEFINE_FLOAT(MPC_XY_I_RPT, 0.05f);
 
 /**
  * Proportional gain for vertical velocity error when use RPT control

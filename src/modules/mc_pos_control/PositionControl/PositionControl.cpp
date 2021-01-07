@@ -119,13 +119,14 @@ bool PositionControl::update(const float dt)
 	{
 		// if rpt control flag is set, we will skip position and velocity control and run RPT controller
 		_rptController(dt);
+		printf("running rpt\n");
 	}
 	else
 	{
 		_positionControl();
 		_velocityControl(dt);
 	}
-
+   
 	_yawspeed_sp = PX4_ISFINITE(_yawspeed_sp) ? _yawspeed_sp : 0.f;
 	_yaw_sp = PX4_ISFINITE(_yaw_sp) ? _yaw_sp : _yaw; // TODO: better way to disable yaw control
 
@@ -140,7 +141,10 @@ void PositionControl::_rptController(const float &dt) //zt: added position contr
 	// RPT control algorithm
 	// u_des = vel_err * k_v + integral + pos_err * k_p + acc_sp
 	Vector3f pos_err = _pos_sp - _pos;
+	printf("pos_err x is %f\n",double(pos_err(0)));
 	Vector3f vel_err = _vel_sp - _vel;
+	printf("vel_err x is %f\n",double(vel_err(0)));
+
 	float acc_dot_temp;
 	acc_dot_temp = (_acc_sp(0) - _acc_sp_smoothened(0)) / dt;
 	acc_dot_temp = math::constrain(acc_dot_temp, _gain_jerk_rpt * -1.2f, _gain_jerk_rpt * 1.2f);
@@ -178,16 +182,21 @@ void PositionControl::_rptController(const float &dt) //zt: added position contr
 		_thr_sp.xy() = thrust_sp_xy / thrust_sp_xy_norm * thrust_max_xy;
 	}
 
-	// Use tracking Anti-Windup for horizontal direction: during saturation, the integrator is used to unsaturate the output
-	// see Anti-Reset Windup for PID controllers, L.Rundqwist, 1990
-	const Vector2f acc_sp_xy_limited = Vector2f(_thr_sp) * (CONSTANTS_ONE_G / _hover_thrust);
-	const float arw_gain = 2.f / _gain_vel_p(0);
-	pos_err.xy() = Vector2f(pos_err) - (arw_gain * (Vector2f(_acc_sp) - acc_sp_xy_limited));
+	// // Use tracking Anti-Windup for horizontal direction: during saturation, the integrator is used to unsaturate the output
+	// // see Anti-Reset Windup for PID controllers, L.Rundqwist, 1990
+	// const Vector2f acc_sp_xy_limited = Vector2f(_thr_sp) * (CONSTANTS_ONE_G / _hover_thrust);
+	// const float arw_gain = 2.f / _gain_vel_p(0);
+	// pos_err.xy() = Vector2f(pos_err) - (arw_gain * (Vector2f(_acc_sp) - acc_sp_xy_limited));
 
-	// Make sure integral doesn't get NAN
-	ControlMath::setZeroIfNanVector3f(pos_err);
-	// Update integral part of velocity control
+	// // Make sure integral doesn't get NAN
+	// ControlMath::setZeroIfNanVector3f(pos_err);
+	// // Update integral part of velocity control
+	// _thr_int_rpt += pos_err.emult(_gain_int_rpt) * dt;
+
 	_thr_int_rpt += pos_err.emult(_gain_int_rpt) * dt;
+
+	printf("thrust int x is %f\n",double(_thr_int_rpt(0)));
+	printf("thrust int y is %f\n",double(_thr_int_rpt(1)));
 
 	// limit thrust integral
 	_thr_int_rpt(2) = math::min(fabsf(_thr_int_rpt(2)), CONSTANTS_ONE_G) * sign(_thr_int_rpt(2));

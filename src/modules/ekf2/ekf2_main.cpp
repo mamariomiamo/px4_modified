@@ -1465,15 +1465,15 @@ void Ekf2::Run()
 					static uint8_t heading_reset_counter = 0;
 
 					if (z_reset_counter != lpos.z_reset_counter)
-						mavlink_log_critical(&mavlink_log_pub, "EKF2 Resets Vertical Position");
+						mavlink_log_info(&mavlink_log_pub, "EKF2 Resets Vertical Position %d", lpos.z_reset_counter);
 					if (vz_reset_counter != lpos.vz_reset_counter)
-						mavlink_log_critical(&mavlink_log_pub, "EKF2 Resets Vertical Velocity");
+						mavlink_log_info(&mavlink_log_pub, "EKF2 Resets Vertical Velocity %d", lpos.vz_reset_counter);
 					if (xy_reset_counter != lpos.xy_reset_counter)
-						mavlink_log_critical(&mavlink_log_pub, "EKF2 Resets Horizontal Position");
+						mavlink_log_info(&mavlink_log_pub, "EKF2 Resets Horizontal Position %d", lpos.xy_reset_counter);
 					if (vxy_reset_counter != lpos.vxy_reset_counter)
-						mavlink_log_critical(&mavlink_log_pub, "EKF2 Resets Horizontal Velocity");
+						mavlink_log_info(&mavlink_log_pub, "EKF2 Resets Horizontal Velocity %d", lpos.vxy_reset_counter);
 					if (heading_reset_counter != lpos.heading_reset_counter)
-						mavlink_log_critical(&mavlink_log_pub, "EKF2 Resets Yaw Heading");
+						mavlink_log_info(&mavlink_log_pub, "EKF2 Resets Yaw Heading %d", heading_reset_counter);
 
 
 					z_reset_counter = lpos.z_reset_counter;
@@ -1661,6 +1661,8 @@ void Ekf2::Run()
 							status.hgt_test_ratio, status.tas_test_ratio,
 							status.hagl_test_ratio, status.beta_test_ratio);
 
+			// hm: check on if Vision is actually fused successfully
+			if (new_ev_data_received)
 			{
 
 				static uint32_t reject_hor_pos = 0;
@@ -1679,7 +1681,7 @@ void Ekf2::Run()
 					reject_hor_pos++;
 					// consecutive 10 measurement rejection or upon time out
 					if (reject_hor_pos >= 10){
-						mavlink_log_warning(&mavlink_log_pub, "EKF2 Reject Horizontal Position (Innovation)");
+						mavlink_log_warning(&mavlink_log_pub, "EKF2 Reject Vision Horizontal Position (Innovation)");
 						reject_hor_pos = 0;
 					}
 				}else
@@ -1690,11 +1692,23 @@ void Ekf2::Run()
 
 					reject_hor_vel++;
 					if (reject_hor_vel >= 10){
-						mavlink_log_warning(&mavlink_log_pub, "EKF2 Reject Horizontal Velocity (Innovation)");
+						mavlink_log_warning(&mavlink_log_pub, "EKF2 Reject Vision Horizontal Velocity (Innovation)");
 						reject_hor_vel = 0;
 					}
 				}else
 					reject_hor_vel = 0;
+
+
+				static hrt_abstime vision_pos_status_report_time = 0;
+				if (vision_pos_status_report_time == 0 || _ekf.isTimedOut(vision_pos_status_report_time, 5_s)){
+					if(control_status.flags.ev_pos && !new_reject_hor_pos){
+						mavlink_log_info(&mavlink_log_pub, "EKF2 Using Vision Position");
+					}
+					else if (control_status.flags.ev_pos){
+						mavlink_log_info(&mavlink_log_pub, "EKF2 Ignore Vision Position");
+					}
+					vision_pos_status_report_time = hrt_absolute_time();
+				}
 
 			}
 

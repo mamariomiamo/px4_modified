@@ -82,6 +82,9 @@
 
 #include "Utility/PreFlightChecker.hpp"
 
+#include <systemlib/mavlink_log.h>
+#include <uORB/topics/mavlink_log.h>
+
 // defines used to specify the mask position for use of different accuracy metrics in the GPS blending algorithm
 #define BLEND_MASK_USE_SPD_ACC      1
 #define BLEND_MASK_USE_HPOS_ACC     2
@@ -93,6 +96,10 @@
 
 using math::constrain;
 using namespace time_literals;
+
+
+/* Mavlink log uORB handle */
+static orb_advert_t mavlink_log_pub = nullptr;
 
 class Ekf2 final : public ModuleBase<Ekf2>, public ModuleParams, public px4::ScheduledWorkItem
 {
@@ -1104,6 +1111,8 @@ void Ekf2::Run()
 		// if error estimates are unavailable, use parameter defined defaults
 		new_ev_data_received = false;
 
+		static bool ev_data_present = false;
+
 		if (_ev_odom_sub.updated()) {
 			new_ev_data_received = true;
 
@@ -1185,6 +1194,12 @@ void Ekf2::Run()
 
 			ekf2_timestamps.visual_odometry_timestamp_rel = (int16_t)((int64_t)_ev_odom.timestamp / 100 -
 					(int64_t)ekf2_timestamps.timestamp / 100);
+
+
+			if (!ev_data_present){
+				mavlink_log_warning(&mavlink_log_pub, "EKF2 First EV Data Received, Slack %.2f ms", ekf2_timestamps.visual_odometry_timestamp_rel/10.0 );
+				ev_data_present = true;
+			}
 		}
 
 		bool vehicle_land_detected_updated = _vehicle_land_detected_sub.updated();
@@ -1227,10 +1242,77 @@ void Ekf2::Run()
 			_last_time_slip_us = (now - _start_time_us) - _integrated_time_us;
 		}
 
+		static filter_control_status_u control_status;
+		{
+			filter_control_status_u new_control_status;
+			_ekf.get_control_mode(&new_control_status.value);
+
+			// Tilt and Yaw align
+
+			if (new_control_status.flags.tilt_align && !control_status.flags.tilt_align){
+				mavlink_log_warning(&mavlink_log_pub, "EKF2 Tilt Align");
+			}else if(!new_control_status.flags.tilt_align && control_status.flags.tilt_align){
+				mavlink_log_critical(&mavlink_log_pub, "EKF2 Lost Tilt Align");
+			}
+
+			if (new_control_status.flags.yaw_align && !control_status.flags.yaw_align){
+				mavlink_log_warning(&mavlink_log_pub, "EKF2 Yaw Align");
+			}else if(!new_control_status.flags.yaw_align && control_status.flags.yaw_align){
+				mavlink_log_critical(&mavlink_log_pub, "EKF2 Lost Yaw Align");
+			}
+
+			// GPS Fusion
+			if (new_control_status.flags.gps && !control_status.flags.gps){
+				mavlink_log_warning(&mavlink_log_pub, "EKF2 Start GPS Fusion");
+			}else if(!new_control_status.flags.gps && control_status.flags.gps){
+				mavlink_log_critical(&mavlink_log_pub, "EKF2 Stop GPS Fusion");
+			}
+
+			// Regular Update If GPS is in Use
+			static hrt_abstime gps_status_report_time = 0;
+			if (gps_status_report_time == 0 || _ekf.isTimedOut(gps_status_report_time, 15_s)){
+				if(control_status.flags.gps){
+					mavlink_log_info(&mavlink_log_pub, "EKF2 Using GPS");
+				}
+				else{
+					mavlink_log_info(&mavlink_log_pub, "EKF2 Ignore GPS");
+				}
+				gps_status_report_time = hrt_absolute_time();
+			}
+
+			// Vision Velocity
+			if (new_control_status.flags.ev_vel && !control_status.flags.ev_vel){
+				mavlink_log_warning(&mavlink_log_pub, "EKF2 Start Vision Velocity Fusion");
+			}else if(!new_control_status.flags.ev_vel && control_status.flags.ev_vel){
+				mavlink_log_critical(&mavlink_log_pub, "EKF2 Stop Vision Velocity Fusion");
+			}
+
+			// Vision Position
+			if (new_control_status.flags.ev_pos && !control_status.flags.ev_pos){
+				mavlink_log_warning(&mavlink_log_pub, "EKF2 Start Vision Position Fusion");
+			}else if(!new_control_status.flags.ev_pos && control_status.flags.ev_pos){
+				mavlink_log_critical(&mavlink_log_pub, "EKF2 Stop Vision Position Fusion");
+			}
+
+			control_status.value = new_control_status.value;
+		}
+
 		if (ekf_updated) {
 
-			filter_control_status_u control_status;
-			_ekf.get_control_mode(&control_status.value);
+			static bool local_position_valid;
+			{
+
+				bool new_local_position_valid = _ekf.local_position_is_valid();
+
+				if (new_local_position_valid && !local_position_valid){
+					mavlink_log_warning(&mavlink_log_pub, "EKF2 Local Position Valid");
+				}else if(!new_local_position_valid && local_position_valid){
+					mavlink_log_critical(&mavlink_log_pub, "EKF2 Local Position Lost");
+				}
+
+				local_position_valid = new_local_position_valid;
+			}
+
 
 			// only publish position after successful alignment
 			if (control_status.flags.tilt_align) {
@@ -1251,8 +1333,8 @@ void Ekf2::Run()
 				Vector3f position = _ekf.getPosition();
 				const float lpos_x_prev = lpos.x;
 				const float lpos_y_prev = lpos.y;
-				lpos.x = (_ekf.local_position_is_valid()) ? position(0) : 0.0f;
-				lpos.y = (_ekf.local_position_is_valid()) ? position(1) : 0.0f;
+				lpos.x = (local_position_valid) ? position(0) : 0.0f;
+				lpos.y = (local_position_valid) ? position(1) : 0.0f;
 				lpos.z = position(2);
 
 				// Vehicle odometry position
@@ -1282,9 +1364,15 @@ void Ekf2::Run()
 				lpos.az = vel_deriv(2);
 
 				// TODO: better status reporting
-				lpos.xy_valid = _ekf.local_position_is_valid() && !_preflt_checker.hasHorizFailed();
+				const bool xy_valid = local_position_valid && !_preflt_checker.hasHorizFailed();
+				// if (xy_valid && !lpos.xy_valid){
+				// 	mavlink_log_critical(&mavlink_log_pub, "EKF2 Local Position Valid");
+				// }else if(!xy_valid && lpos.xy_valid){
+				// 	mavlink_log_critical(&mavlink_log_pub, "EKF2 Local Position Lost");
+				// }
+				lpos.xy_valid = xy_valid;
 				lpos.z_valid = !_preflt_checker.hasVertFailed();
-				lpos.v_xy_valid = _ekf.local_position_is_valid() && !_preflt_checker.hasHorizFailed();
+				lpos.v_xy_valid = local_position_valid && !_preflt_checker.hasHorizFailed();
 				lpos.v_z_valid = !_preflt_checker.hasVertFailed();
 
 				// Position of local NED origin in GPS / WGS84 frame
@@ -1293,6 +1381,11 @@ void Ekf2::Run()
 
 				// true if position (x,y,z) has a valid WGS-84 global reference (ref_lat, ref_lon, alt)
 				const bool ekf_origin_valid = _ekf.get_ekf_origin(&origin_time, &ekf_origin, &lpos.ref_alt);
+				if (ekf_origin_valid && !lpos.xy_global){
+					mavlink_log_warning(&mavlink_log_pub, "EKF2 Global Position Valid");
+				}else if(!ekf_origin_valid && lpos.xy_global){
+					mavlink_log_critical(&mavlink_log_pub, "EKF2 Global Position Lost");
+				}
 				lpos.xy_global = ekf_origin_valid;
 				lpos.z_global = ekf_origin_valid;
 
@@ -1362,6 +1455,33 @@ void Ekf2::Run()
 				_ekf.get_velD_reset(&lpos.delta_vz, &lpos.vz_reset_counter);
 				_ekf.get_posNE_reset(&lpos.delta_xy[0], &lpos.xy_reset_counter);
 				_ekf.get_velNE_reset(&lpos.delta_vxy[0], &lpos.vxy_reset_counter);
+
+				// hm: stats on resets
+				{
+					static uint8_t z_reset_counter = 0;
+					static uint8_t vz_reset_counter = 0;
+					static uint8_t xy_reset_counter = 0;
+					static uint8_t vxy_reset_counter = 0;
+					static uint8_t heading_reset_counter = 0;
+
+					if (z_reset_counter != lpos.z_reset_counter)
+						mavlink_log_critical(&mavlink_log_pub, "EKF2 Resets Vertical Position");
+					if (vz_reset_counter != lpos.vz_reset_counter)
+						mavlink_log_critical(&mavlink_log_pub, "EKF2 Resets Vertical Velocity");
+					if (xy_reset_counter != lpos.xy_reset_counter)
+						mavlink_log_critical(&mavlink_log_pub, "EKF2 Resets Horizontal Position");
+					if (vxy_reset_counter != lpos.vxy_reset_counter)
+						mavlink_log_critical(&mavlink_log_pub, "EKF2 Resets Horizontal Velocity");
+					if (heading_reset_counter != lpos.heading_reset_counter)
+						mavlink_log_critical(&mavlink_log_pub, "EKF2 Resets Yaw Heading");
+
+
+					z_reset_counter = lpos.z_reset_counter;
+					vz_reset_counter = lpos.vz_reset_counter;
+					xy_reset_counter = lpos.xy_reset_counter;
+					vxy_reset_counter = lpos.vxy_reset_counter;
+					heading_reset_counter = lpos.heading_reset_counter;
+				}
 
 				// get control limit information
 				_ekf.get_ekf_ctrl_limits(&lpos.vxy_max, &lpos.vz_max, &lpos.hagl_min, &lpos.hagl_max);
@@ -1540,6 +1660,43 @@ void Ekf2::Run()
 							status.vel_test_ratio, status.pos_test_ratio,
 							status.hgt_test_ratio, status.tas_test_ratio,
 							status.hagl_test_ratio, status.beta_test_ratio);
+
+			{
+
+				static uint32_t reject_hor_pos = 0;
+				static uint32_t reject_hor_vel = 0;
+
+				estimator::innovation_fault_status_u innovation_flags;
+
+				innovation_flags.value = status.innovation_check_flags;
+
+				const bool new_reject_hor_pos = innovation_flags.flags.reject_hor_pos;
+				const bool new_reject_hor_vel = innovation_flags.flags.reject_hor_vel;
+
+				// hm: Horizontal position fusion rejected
+				if (new_reject_hor_pos){
+
+					reject_hor_pos++;
+					// consecutive 10 measurement rejection or upon time out
+					if (reject_hor_pos >= 10){
+						mavlink_log_warning(&mavlink_log_pub, "EKF2 Reject Horizontal Position (Innovation)");
+						reject_hor_pos = 0;
+					}
+				}else
+					reject_hor_pos = 0;
+
+				// hm: Horitontal velocity fusion rejected
+				if (new_reject_hor_vel){
+
+					reject_hor_vel++;
+					if (reject_hor_vel >= 10){
+						mavlink_log_warning(&mavlink_log_pub, "EKF2 Reject Horizontal Velocity (Innovation)");
+						reject_hor_vel = 0;
+					}
+				}else
+					reject_hor_vel = 0;
+
+			}
 
 			status.pos_horiz_accuracy = _vehicle_local_position_pub.get().eph;
 			status.pos_vert_accuracy = _vehicle_local_position_pub.get().epv;
